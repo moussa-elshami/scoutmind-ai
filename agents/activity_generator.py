@@ -157,13 +157,14 @@ Respond with valid JSON only. No markdown, no preamble."""
             try:
                 result = json.loads(content[start:end])
             except json.JSONDecodeError:
-                # Final fallback: ask LLM to generate fewer activities
+                # Final fallback: retry all activities with stricter brevity constraints
                 fallback_msg = f"""The previous response had JSON formatting issues.
-Generate descriptions for ONLY the first 3 activities from this list:
-{json.dumps(selected_activities[:3], indent=2)}
+Generate descriptions for ALL {len(selected_activities)} activities from this list:
+{json.dumps(selected_activities, indent=2)}
 
 Unit: {unit}, Theme: {theme}
-Keep each activity description concise. Respond with valid JSON only."""
+STRICT LIMITS: instructions max 4 steps, leader_tips max 1 sentence, objective max 1 sentence.
+Respond with valid JSON only."""
                 fallback_response = llm.invoke([
                     SystemMessage(content=SYSTEM_PROMPT),
                     HumanMessage(content=fallback_msg),
