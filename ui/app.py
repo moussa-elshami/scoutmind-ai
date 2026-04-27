@@ -20,6 +20,19 @@ from tools.pdf_exporter import export_plan_to_pdf
 # ── Initialize DB ─────────────────────────────────────────────────────────────
 init_db()
 
+
+def _parse_thinking_msg(msg: dict) -> tuple:
+    """Returns (elapsed_str, html) from a thinking message, handling both
+    in-memory format (has 'elapsed' key) and DB-loaded format ('[elapsed:...]<html>')."""
+    content = msg.get("content", "")
+    elapsed = msg.get("elapsed", "")
+    if not elapsed and content.startswith("[elapsed:"):
+        end = content.find("]")
+        if end > 0:
+            elapsed = content[9:end]
+            content = content[end + 1:]
+    return elapsed or "some time", content
+
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ScoutMind",
@@ -739,6 +752,29 @@ def render_app():
                     <div class='chat-label'>You</div>
                     {msg['content']}
                 </div>""", unsafe_allow_html=True)
+            elif msg["role"] == "thinking":
+                elapsed, inner = _parse_thinking_msg(msg)
+                st.markdown(f"""
+                <details style="margin:8px 0 4px 0;">
+                  <summary style="cursor:pointer;list-style:none;outline:none;display:block;">
+                    <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+                                background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
+                        <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                      <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed}</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
+                        <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                    </div>
+                  </summary>
+                  <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
+                              border:1px solid #DDD6FE;border-radius:8px;max-height:400px;overflow-y:auto;">
+                    {inner}
+                  </div>
+                </details>
+                """, unsafe_allow_html=True)
             elif msg["role"] == "plan":
                 st.markdown(f"""
                 <div class='chat-assistant'>
@@ -841,45 +877,114 @@ def render_generating():
         <div style='font-size:15px;color:#6B7280;'>Generating your {gen['unit']} meeting plan on <em>{gen['theme']}</em>...</div>
     </div>""", unsafe_allow_html=True)
 
-    # Show previous chat
+    # Show previous chat messages
     for msg in st.session_state.messages:
         if msg["role"] == "user":
             st.markdown(f"<div class='chat-user'><div class='chat-label'>You</div>{msg['content']}</div>", unsafe_allow_html=True)
-        else:
+        elif msg["role"] == "thinking":
+            elapsed, inner = _parse_thinking_msg(msg)
+            st.markdown(f"""
+            <details style="margin:8px 0 4px 0;">
+              <summary style="cursor:pointer;list-style:none;outline:none;display:block;">
+                <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+                            background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
+                    <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
+                    <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              </summary>
+              <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
+                          border:1px solid #DDD6FE;border-radius:8px;max-height:400px;overflow-y:auto;">
+                {inner}
+              </div>
+            </details>
+            """, unsafe_allow_html=True)
+        elif msg["role"] == "assistant":
             st.markdown(f"<div class='chat-assistant'><div class='chat-label'>ScoutMind</div>{msg['content']}</div>", unsafe_allow_html=True)
 
-    # Agent progress header
-    st.markdown("""
-    <div style='margin:20px 0 10px 0;font-size:13px;font-weight:600;letter-spacing:0.5px;
-                text-transform:uppercase;color:#7C3AED;'>Agent Pipeline</div>
-    """, unsafe_allow_html=True)
-
-    thinking_placeholder  = st.empty()
-    thoughts_placeholder  = st.empty()
+    # ── Thinking panel — open by default while pipeline runs ─────────────────
+    thinking_placeholder = st.empty()
     thoughts = []
 
-    def progress_callback(agent, thought, status):
-        css  = "done" if status == "done" else "error" if status == "error" else ""
-        icon = "✓" if status == "done" else "✗" if status == "error" else "▸"
+    def _render_panel(is_done=False, elapsed_str=None):
+        rows = ""
+        for t in thoughts:
+            preview = t["thought"][:200] + ("..." if len(t["thought"]) > 200 else "")
+            color   = "#10B981" if t["status"] == "done" else "#EF4444" if t["status"] == "error" else "#7C3AED"
+            icon    = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
+            rows += f"""
+            <div style="padding:8px 0;border-bottom:1px solid #EDE9FE;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
+                          text-transform:uppercase;color:{color};margin-bottom:3px;">{icon} {t["agent"]}</div>
+              <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
+            </div>"""
 
+        body = rows or '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Starting agents...</div>'
+
+        if is_done:
+            summary = f"""
+            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+                        background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
+                <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed_str}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
+                <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>"""
+            open_attr = ""
+        else:
+            summary = """
+            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
+                        background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
+              <span style="display:inline-flex;gap:4px;align-items:center;">
+                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
+                             display:inline-block;animation:sm-pulse 1.2s ease-in-out infinite;"></span>
+                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
+                             display:inline-block;animation:sm-pulse 1.2s ease-in-out 0.4s infinite;"></span>
+                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
+                             display:inline-block;animation:sm-pulse 1.2s ease-in-out 0.8s infinite;"></span>
+              </span>
+              <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thinking...</span>
+            </div>
+            <style>
+              @keyframes sm-pulse {
+                0%,100% { opacity:1; transform:scale(1); }
+                50%      { opacity:0.3; transform:scale(0.6); }
+              }
+            </style>"""
+            open_attr = "open"
+
+        thinking_placeholder.markdown(f"""
+        <details {open_attr} style="margin:16px 0 12px 0;">
+          <summary style="cursor:pointer;list-style:none;outline:none;display:block;">{summary}</summary>
+          <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
+                      border:1px solid #DDD6FE;border-radius:8px;max-height:420px;overflow-y:auto;">
+            {body}
+          </div>
+        </details>
+        """, unsafe_allow_html=True)
+
+    def progress_callback(agent, thought, status):
         found = False
         for t in thoughts:
             if t["agent"] == agent:
-                t.update({"thought": thought, "status": status, "css": css, "icon": icon})
+                t.update({"thought": thought, "status": status})
                 found = True
                 break
         if not found:
-            thoughts.append({"agent": agent, "thought": thought, "status": status, "css": css, "icon": icon})
+            thoughts.append({"agent": agent, "thought": thought, "status": status})
+        _render_panel()
 
-        html = ""
-        for t in thoughts:
-            preview = t["thought"][:180] + ("..." if len(t["thought"]) > 180 else "")
-            html += f"""
-            <div class='agent-block {t["css"]}'>
-                <div class='agent-name {t["css"]}'>{t["icon"]} {t["agent"]}</div>
-                {preview}
-            </div>"""
-        thoughts_placeholder.markdown(html, unsafe_allow_html=True)
+    # Show initial "Thinking..." open panel
+    _render_panel()
 
     # Run the full pipeline
     _start_time = _time.time()
@@ -891,56 +996,41 @@ def render_generating():
         conversation_history=st.session_state.messages,
         progress_callback=progress_callback,
     )
-
     st.session_state.generating = None
 
-    # Show elapsed time like ChatGPT — "Thought for X seconds"
     elapsed = round(_time.time() - _start_time)
     if elapsed < 60:
-        time_str = f"{elapsed} second{'s' if elapsed != 1 else ''}"
+        elapsed_str = f"{elapsed} second{'s' if elapsed != 1 else ''}"
     else:
         mins = elapsed // 60
-        time_str = f"{mins} minute{'s' if mins != 1 else ''}"
+        elapsed_str = f"{mins} minute{'s' if mins != 1 else ''}"
 
-    # Build final collapsed thinking summary
-    inner = ""
+    # Collapse panel to "Thought for X seconds"
+    _render_panel(is_done=True, elapsed_str=elapsed_str)
+
+    # Build persistent HTML for the thinking message saved in chat history
+    thinking_html = ""
     for t in thoughts:
         preview = t["thought"][:200] + ("..." if len(t["thought"]) > 200 else "")
-        inner += f"""
-        <div style="padding:6px 0;border-bottom:1px solid #EDE9FE;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
-                        text-transform:uppercase;color:#10B981;margin-bottom:3px;">
-                &#10003; {t["agent"]}
-            </div>
-            <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
+        color   = "#10B981" if t["status"] == "done" else "#EF4444" if t["status"] == "error" else "#7C3AED"
+        icon    = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
+        thinking_html += f"""
+        <div style="padding:8px 0;border-bottom:1px solid #EDE9FE;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
+                      text-transform:uppercase;color:{color};margin-bottom:3px;">{icon} {t["agent"]}</div>
+          <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
         </div>"""
 
-    # Final collapsed thinking box — identical to ChatGPT style
-    # Click to expand and see full agent reasoning
-    thinking_placeholder.markdown(f"""
-    <details style="margin-bottom:12px;">
-        <summary style="cursor:pointer;list-style:none;outline:none;">
-            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
-                        background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
-                    <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <span style="font-size:13px;color:#7C3AED;font-style:italic;">
-                    Thought for {time_str}
-                </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
-                    <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            </div>
-        </summary>
-        <div style="margin-top:8px;padding:12px;background:#F5F3FF;
-                    border:1px solid #DDD6FE;border-radius:8px;">
-            {inner}
-        </div>
-    </details>
-    """, unsafe_allow_html=True)
-    thoughts_placeholder.empty()
+    # Persist thinking summary as a chat message.
+    # DB format: "[elapsed:X seconds]<html>" — parsed back at render time.
+    db_content = f"[elapsed:{elapsed_str}]" + thinking_html
+    st.session_state.messages.append({
+        "role":    "thinking",
+        "content": thinking_html,
+        "elapsed": elapsed_str,
+    })
+    if st.session_state.current_session:
+        add_message(st.session_state.current_session, user["id"], "thinking", db_content)
 
     if result.get("error"):
         error_msg = f"I encountered an issue generating the plan: {result['error']}. Please try again or rephrase your request."
