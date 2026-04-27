@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python init_db.py)",
+      "Bash(python -c \"import streamlit, sqlalchemy, bcrypt; print\\('OK'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"import streamlit, sqlalchemy, bcrypt; print\\('All OK'\\)\")",
+      "Bash(python -m pip install bcrypt)",
+      "Bash(streamlit run *)",
+      "Bash(python -m streamlit run ui/app.py)",
+      "Bash(python3.13 -c \"import streamlit; print\\('ok'\\)\")",
+      "Bash(py -3.13 -c \"import streamlit; print\\('ok'\\)\")",
+      "Bash(where streamlit *)",
+      "Bash(py -3.13 -m pip install bcrypt sqlalchemy)",
+      "Bash(py -3.13 -c \"import streamlit, sqlalchemy, bcrypt; print\\('All OK on 3.13'\\)\")",
+      "Bash(\"C:/Users/User/AppData/Local/Programs/Python/Python313/Scripts/streamlit.exe\" run *)",
+      "Bash(py -3.13 -m streamlit run \"c:/Users/User/OneDrive - Lebanese American University/Desktop/Vscode/scoutmind/ui/app.py\" --server.headless true)",
+      "Bash(py -3.13 -c \"import ast; ast.parse\\(open\\('ui/app.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(py -3.13 -c \"import ast; ast.parse\\(open\\('ui/app.py', encoding='utf-8'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python -m pip install chromadb)",
+      "Bash(python agents/test_agents.py)"
+    ]
+  }
+}

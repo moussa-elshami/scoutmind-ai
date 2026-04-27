@@ -1,0 +1,134 @@
+[
+  {
+    "id": "EDU001",
+    "technique_name": "Think-Pair-Share",
+    "age_range": [7, 18],
+    "cognitive_load": "medium",
+    "activity_types_compatible": ["lecture", "discussion"],
+    "description": "A structured discussion strategy where learners first think individually about a question, then discuss their thoughts with a partner, and finally share with the larger group.",
+    "implementation_guide": "1. Pose a clear, open-ended question to the group.\n2. Allow 1-2 minutes of silent individual thinking.\n3. Pairs discuss their thoughts for 2-3 minutes.\n4. Facilitate sharing with the full group, calling on several pairs.\n5. Summarise key themes that emerged.",
+    "scouting_adaptation": "Use after presenting a Scout Law principle or ethical scenario. Ask: 'What would you do if...' Members think alone, discuss with a patrol partner, then share with the troop. This respects introverted members while ensuring all voices are heard.",
+    "learning_outcome": "Improves retention, encourages participation from quieter members, and develops articulation skills."
+  },
+  {
+    "id": "EDU002",
+    "technique_name": "Scaffolded Learning",
+    "age_range": [3, 18],
+    "cognitive_load": "low",
+    "activity_types_compatible": ["skill", "lecture", "craft"],
+    "description": "Breaking a complex skill or concept into small, sequential steps where each step builds on the previous one, providing support that is gradually removed as competence grows.",
+    "implementation_guide": "1. Identify the final skill or knowledge target.\n2. Break it into 4-6 sequential sub-steps.\n3. Demonstrate each step fully before members attempt it.\n4. Provide guided practice for each step before moving to the next.\n5. Gradually remove demonstration support as members gain confidence.\n6. Final practice is fully independent.",
+    "scouting_adaptation": "Ideal for teaching knots, first aid procedures, and fire building. For Beavers and Cubs, keep steps to 3 maximum and use physical demonstration at every stage. For older units, introduce written instruction cards as an intermediate scaffold before independent practice.",
+    "learning_outcome": "Reduces frustration, builds confidence, ensures no member is left behind on foundational skills."
+  },
+  {
+    "id": "EDU003",
+    "technique_name": "Multisensory Learning",
+    "age_range": [3, 14],
+    "cognitive_load": "low",
+    "activity_types_compatible": ["skill", "craft", "game", "storytelling"],
+    "description": "Engaging multiple senses simultaneously — visual, auditory, and kinaesthetic — to reinforce learning and improve retention for diverse learners.",
+    "implementation_guide": "1. Identify the core concept to teach.\n2. Design a visual component (diagram, demonstration, drawing).\n3. Add an auditory component (explanation, chant, discussion).\n4. Add a kinaesthetic component (hands-on practice, movement, crafting).\n5. Allow members to engage with all three modalities before assessing understanding.",
+    "scouting_adaptation": "When teaching compass reading: show a compass diagram (visual), explain direction names aloud as members repeat them (auditory), and have members physically walk compass bearings in the field (kinaesthetic). For Beavers, add a song that reinforces the concept being taught.",
+    "learning_outcome": "Increases retention by up to 65% compared to single-modality instruction. Particularly effective for younger units and members with learning differences."
+  },
+  {
+    "id": "EDU004",
+    "technique_name": "Reflective Journaling",
+    "age_range": [9, 18],
+    "cognitive_load": "medium",
+    "activity_types_compatible": ["lecture", "discussion", "skill"],
+    "description": "A metacognitive practice where learners write brief reflective responses to guided prompts, processing their experience and consolidating learning.",
+    "implementation_guide": "1. Allow 3-5 minutes at the end of an activity or lecture.\n2. Provide a specific prompt — avoid generic prompts like 'what did you learn'.\n3. Good prompts: 'What challenged you today and why?', 'What would you do differently next time?', 'How does today's lesson connect to your daily life?'\n4. Journaling is private — never require members to share unless they choose to.\n5. Leaders can review journals periodically with member consent to track development.",
+    "scouting_adaptation": "Use the Small Notebook that all members carry as their scout journal. Provide a prompt at the end of each lecture or skill session. Over the year, journals become a record of personal growth. Introduce this technique from Cubs onwards.",
+    "learning_outcome": "Deepens understanding, develops self-awareness, and creates a personal record of the scouting journey."
+  },
+  {
+    "id": "EDU005",
+    "technique_name": "Role-Playing Scenarios",
+    "age_range": [7, 18],
+    "cognitive_load": "medium",
+    "activity_types_compatible": ["lecture", "discussion", "team_challenge"],
+    "description": "Members act out realistic scenarios to practice decision-making, empathy, and the application of values or skills in a safe, low-stakes environment.",
+    "implementation_guide": "1. Design a scenario relevant to the meeting theme (e.g., a conflict between friends, an emergency situation, a moral dilemma).\n2. Assign roles clearly — keep groups small (2-4 members).\n3. Allow 3-5 minutes for the role-play.\n4. Debrief immediately after: What happened? Why did the characters make those choices? What would you change?\n5. Avoid forcing participation — offer observer roles for reluctant members.",
+    "scouting_adaptation": "Use for Scout Law discussions, first aid training, and environmental responsibility. Example: 'Your patrol discovers someone has been dumping rubbish in a protected forest. Act out what you do.' This connects abstract values to concrete action.",
+    "learning_outcome": "Builds empathy, practises decision-making under pressure, and makes abstract values concrete and actionable."
+  },
+  {
+    "id": "EDU006",
+    "technique_name": "Visual Anchoring",
+    "age_range": [3, 18],
+    "cognitive_load": "low",
+    "activity_types_compatible": ["lecture", "skill", "craft"],
+    "description": "Creating or presenting a visual representation of a concept to serve as a memory anchor that members can mentally return to when recalling the information.",
+    "implementation_guide": "1. At the start of a lecture or skill session, introduce a central visual: a diagram, drawing, symbol, or physical object.\n2. Refer back to this visual throughout the session.\n3. Ask members to sketch or recreate the visual in their notebooks.\n4. At the end, ask members to close their notebooks and recreate the visual from memory.\n5. The visual should be simple enough to draw in under 2 minutes.",
+    "scouting_adaptation": "For the Scout Promise, create a visual symbol that maps each line to an image. For fire safety, use the fire triangle diagram. For knots, use step-by-step drawn diagrams. Beavers can colour in pre-drawn visual anchors rather than drawing them.",
+    "learning_outcome": "Significantly improves retention of complex information. Particularly effective for visual learners and younger members."
+  },
+  {
+    "id": "EDU007",
+    "technique_name": "Energiser Breaks",
+    "age_range": [3, 11],
+    "cognitive_load": "low",
+    "activity_types_compatible": ["game", "song"],
+    "description": "Short physical or playful breaks between cognitive activities to reset attention and prevent cognitive overload, particularly important for younger members with shorter attention spans.",
+    "implementation_guide": "1. Monitor member engagement — when attention begins to drift (typically after 15-20 minutes of cognitive activity for Beavers/Cubs), insert an energiser.\n2. Energisers should be 3-5 minutes maximum.\n3. Examples: a quick movement game, a chant with actions, a stretching routine with funny names.\n4. Energisers should require zero setup and zero materials.\n5. Transition back to the cognitive activity with a clear signal (e.g., 'Scout stop!').",
+    "scouting_adaptation": "Essential for Beaver and Cub meetings. Build energiser breaks into the meeting schedule after every 20 minutes of sit-down activity. Use themed energisers that loosely connect to the meeting theme to maintain continuity.",
+    "learning_outcome": "Restores attention and focus, reduces behavioural disruptions, and improves overall retention of cognitive content."
+  },
+  {
+    "id": "EDU008",
+    "technique_name": "Moral Inference Storytelling",
+    "age_range": [3, 14],
+    "cognitive_load": "medium",
+    "activity_types_compatible": ["storytelling", "lecture"],
+    "description": "Presenting a narrative with a moral dimension and allowing learners to identify the lesson themselves rather than stating it explicitly, developing critical thinking and moral reasoning.",
+    "implementation_guide": "1. Choose or create a story where the moral lesson is embedded but not stated.\n2. Tell the story with engagement and expression.\n3. Ask open questions: 'What do you think about what the character did?', 'Was that the right choice? Why?', 'What would you have done?'\n4. Guide discussion toward the intended lesson without stating it directly.\n5. At the end, ask a member to summarise the lesson in their own words.",
+    "scouting_adaptation": "Ideal for Beavers and Cubs. Adapt classic scouting stories or Lebanese folk tales to embed scouting values. The character should be a young scout facing a relatable dilemma. Avoid stories where the moral is too obvious — the discovery process is where the learning happens.",
+    "learning_outcome": "Develops moral reasoning, critical thinking, and empathy. Children who discover a moral lesson are significantly more likely to apply it than those who are told it."
+  },
+  {
+    "id": "EDU009",
+    "technique_name": "Peer Teaching",
+    "age_range": [9, 18],
+    "cognitive_load": "high",
+    "activity_types_compatible": ["skill", "lecture", "team_challenge"],
+    "description": "After a skill or concept is taught, members teach it back to a peer. This deepens understanding for the teacher and provides a relatable explanation for the learner.",
+    "implementation_guide": "1. Teach the skill or concept to the full group first.\n2. Allow independent practice time.\n3. Pair members: one more confident member with one less confident.\n4. The more confident member teaches the skill to their partner.\n5. Leader circulates to correct misconceptions.\n6. Swap roles for a different component of the skill.",
+    "scouting_adaptation": "Particularly effective for knot tying, first aid, and navigation skills. In older units (Scouts, Pioneers, Rovers), experienced members can teach newer ones. This is consistent with the patrol system in scouting where older members mentor younger ones.",
+    "learning_outcome": "The act of teaching consolidates the teacher's own understanding. Research shows teaching others improves retention to 90% compared to 10% from simply reading."
+  },
+  {
+    "id": "EDU010",
+    "technique_name": "Gamification of Learning",
+    "age_range": [7, 16],
+    "cognitive_load": "medium",
+    "activity_types_compatible": ["skill", "lecture", "game"],
+    "description": "Applying game mechanics — points, challenges, time pressure, competition — to learning activities to increase motivation and engagement.",
+    "implementation_guide": "1. Identify a skill or knowledge area to gamify.\n2. Create clear rules, a scoring system, and a time limit.\n3. Add a competitive or collaborative element.\n4. Keep scores visible to maintain motivation.\n5. Reward effort and improvement, not just winning.\n6. Debrief with what was learned, not just who won.",
+    "scouting_adaptation": "Examples: Knot-tying speed challenge (timed), first aid scenario quiz (buzzer format), map reading race, Scout Law True/False rapid-fire quiz. For younger units, focus on cooperative scoring (the whole group wins if all members reach a target) rather than individual competition.",
+    "learning_outcome": "Increases intrinsic motivation, improves engagement for reluctant learners, and creates memorable associations with the subject matter."
+  },
+  {
+    "id": "EDU011",
+    "technique_name": "Collaborative Problem Solving",
+    "age_range": [7, 18],
+    "cognitive_load": "high",
+    "activity_types_compatible": ["team_challenge", "game"],
+    "description": "Presenting groups with a problem that requires diverse contributions and collective reasoning to solve, developing interpersonal skills alongside cognitive ones.",
+    "implementation_guide": "1. Present a clear, bounded problem with specific constraints.\n2. Ensure the problem genuinely requires multiple people — it should be impossible for one member to solve alone.\n3. Assign roles if needed: timekeeper, recorder, presenter, materials manager.\n4. Allow the group to work without interference — intervene only if the group is completely stuck.\n5. Require groups to present not just their solution but their reasoning process.",
+    "scouting_adaptation": "Use for team challenges like building a bridge from limited materials, planning a hypothetical camp with a budget constraint, or solving a navigation problem as a patrol. Connect the debrief explicitly to scouting values: How did you show leadership? How did you handle disagreement?",
+    "learning_outcome": "Develops communication, leadership, conflict resolution, and critical thinking simultaneously."
+  },
+  {
+    "id": "EDU012",
+    "technique_name": "Sensory Regulation Activities",
+    "age_range": [3, 8],
+    "cognitive_load": "low",
+    "activity_types_compatible": ["craft", "game", "song"],
+    "description": "Activities specifically designed to help young children regulate their sensory and emotional state, transitioning between high-energy and calm activities effectively.",
+    "implementation_guide": "1. Use before a cognitive or sit-down activity to calm an overstimulated group.\n2. Examples: slow breathing with arm movements, tactile craft activities (clay, sand), quiet colouring, gentle rhythm activities.\n3. Use a consistent signal (e.g., a specific song or hand gesture) that members associate with calming down.\n4. Keep the transition gradual — do not demand immediate silence after high-energy games.",
+    "scouting_adaptation": "Essential for Beaver meetings. After an energetic outdoor game, use a 3-minute sensory transition before any lecture or skill activity. A consistent 'calm down song' sung slowly works well. Incorporate texture-based crafts (sand art, leaf rubbing) as calming anchors for Beavers aged 3-5.",
+    "learning_outcome": "Reduces behavioural challenges in young members, improves readiness for learning, and teaches self-regulation skills that extend beyond scouting."
+  }
+]
