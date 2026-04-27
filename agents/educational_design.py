@@ -116,6 +116,29 @@ Respond with the JSON sequence only."""
     result = json.loads(content)
     result["unit"]  = unit
     result["theme"] = theme
+
+    # Enforce duration: if the LLM under-filled, pad with short games until exact
+    sequence  = result.get("sequence", [])
+    shortfall = total_content_minutes - sum(s.get("duration_minutes", 0) for s in sequence)
+    while shortfall >= 10:
+        duration = 15 if shortfall >= 15 else 10
+        sequence.append({
+            "slot":                len(sequence) + 1,
+            "activity_type":       "game",
+            "energy_level":        "high",
+            "duration_minutes":    duration,
+            "theme_focus":         f"Energising reinforcement activity connecting to the theme: {theme}",
+            "educational_technique": None,
+            "placement_reason":    "Added to reach the required content duration",
+        })
+        shortfall -= duration
+
+    # Re-number all slots sequentially
+    for i, slot in enumerate(sequence):
+        slot["slot"] = i + 1
+
+    result["sequence"]               = sequence
+    result["total_content_minutes"]  = total_content_minutes
     return result
 
 

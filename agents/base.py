@@ -74,7 +74,7 @@ def get_llm(temperature: float = 0.7) -> ChatAnthropic:
         model="claude-sonnet-4-6",
         anthropic_api_key=api_key,
         temperature=temperature,
-        max_tokens=16000,
+        max_tokens=32000,
     )
 
 
