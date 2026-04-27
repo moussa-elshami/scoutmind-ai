@@ -944,21 +944,13 @@ def render_generating():
             summary = """
             <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
                         background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-              <span style="display:inline-flex;gap:4px;align-items:center;">
-                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
-                             display:inline-block;animation:sm-pulse 1.2s ease-in-out infinite;"></span>
-                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
-                             display:inline-block;animation:sm-pulse 1.2s ease-in-out 0.4s infinite;"></span>
-                <span style="width:7px;height:7px;border-radius:50%;background:#7C3AED;
-                             display:inline-block;animation:sm-pulse 1.2s ease-in-out 0.8s infinite;"></span>
-              </span>
+              <span style="display:inline-block;width:14px;height:14px;border-radius:50%;
+                           border:2px solid #DDD6FE;border-top-color:#7C3AED;
+                           animation:sm-spin 0.8s linear infinite;flex-shrink:0;"></span>
               <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thinking...</span>
             </div>
             <style>
-              @keyframes sm-pulse {
-                0%,100% { opacity:1; transform:scale(1); }
-                50%      { opacity:0.3; transform:scale(0.6); }
-              }
+              @keyframes sm-spin { to { transform: rotate(360deg); } }
             </style>"""
             open_attr = "open"
 
