@@ -1,12 +1,37 @@
+import re
 import streamlit as st
-import sys
 import os
 import time as _time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from dotenv import load_dotenv
 load_dotenv()
+
+def _parse_duration_minutes(value) -> int | None:
+    """Convert LLM-returned custom_duration to int minutes or None.
+    Handles: integers, plain numeric strings ("180"), hour strings ("3 hours ...").
+    """
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    s = str(value).strip()
+    # Plain integer string
+    if s.isdigit():
+        return int(s)
+    # "N hours" anywhere in the string
+    m = re.search(r'(\d+(?:\.\d+)?)\s*hour', s, re.IGNORECASE)
+    if m:
+        return int(float(m.group(1)) * 60)
+    # "N minutes" or "N min"
+    m = re.search(r'(\d+)\s*min', s, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    # Leading integer before any non-digit
+    m = re.match(r'(\d+)', s)
+    if m:
+        return int(m.group(1))
+    return None
+
 
 from database.models import init_db
 from auth.auth import register_user, login_user, update_profile, DISTRICTS, UNITS
@@ -754,34 +779,25 @@ def render_app():
                 </div>""", unsafe_allow_html=True)
             elif msg["role"] == "thinking":
                 elapsed, inner = _parse_thinking_msg(msg)
-                st.markdown(f"""
-                <details style="margin:8px 0 4px 0;">
-                  <summary style="cursor:pointer;list-style:none;outline:none;display:block;">
-                    <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
-                                background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
-                        <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                      </svg>
-                      <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed}</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
-                        <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                      </svg>
-                    </div>
-                  </summary>
-                  <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
-                              border:1px solid #DDD6FE;border-radius:8px;max-height:400px;overflow-y:auto;">
-                    {inner}
-                  </div>
-                </details>
-                """, unsafe_allow_html=True)
+                with st.expander(f"Thought for {elapsed}"):
+                    st.markdown(inner, unsafe_allow_html=True)
             elif msg["role"] == "plan":
                 st.markdown(f"""
                 <div class='chat-assistant'>
-                    <div class='chat-label'>ScoutMind — Meeting Plan</div>
+                    <div class='chat-label'>ScoutMind - Meeting Plan</div>
                 </div>""", unsafe_allow_html=True)
                 # Render plan as proper markdown
                 st.markdown(msg['content'])
+                # Quality score badge (only for the current session's plan)
+                if st.session_state.last_plan_state:
+                    qs = st.session_state.last_plan_state.get("plan", {}).get("quality_score")
+                    if qs:
+                        c1, c2, c3, c4, c5 = st.columns(5)
+                        c1.metric("Overall Score", f"{qs['total']}/100", f"Grade {qs['grade']}")
+                        c2.metric("Timing",         f"{qs['scores']['timing']}/25")
+                        c3.metric("Structure",      f"{qs['scores']['structure']}/25")
+                        c4.metric("Variety",        f"{qs['scores']['variety']}/25")
+                        c5.metric("Context",        f"{qs['scores']['context_awareness']}/25")
                 # PDF download button
                 if st.session_state.last_plan_state:
                     h     = st.session_state.last_plan_state.get("plan", {}).get("header", {})
@@ -849,10 +865,11 @@ def render_app():
 
             # Store generation params and trigger generation page
             st.session_state.generating = {
-                "unit":            conv.get("unit", user["unit"]),
-                "theme":           conv.get("theme", "General"),
-                "meeting_date":    conv.get("meeting_date"),
-                "custom_duration": conv.get("custom_duration"),
+                "unit":               conv.get("unit", user["unit"]),
+                "theme":              conv.get("theme", "General"),
+                "meeting_date":       conv.get("meeting_date"),
+                "custom_duration":    _parse_duration_minutes(conv.get("custom_duration")),
+                "meeting_start_time": conv.get("meeting_start_time"),
             }
         else:
             reply = conv.get("response", "I am here to help with scout meeting planning.")
@@ -883,149 +900,76 @@ def render_generating():
             st.markdown(f"<div class='chat-user'><div class='chat-label'>You</div>{msg['content']}</div>", unsafe_allow_html=True)
         elif msg["role"] == "thinking":
             elapsed, inner = _parse_thinking_msg(msg)
-            st.markdown(f"""
-            <details style="margin:8px 0 4px 0;">
-              <summary style="cursor:pointer;list-style:none;outline:none;display:block;">
-                <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
-                            background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
-                    <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                  </svg>
-                  <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed}</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
-                    <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-                  </svg>
-                </div>
-              </summary>
-              <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
-                          border:1px solid #DDD6FE;border-radius:8px;max-height:400px;overflow-y:auto;">
-                {inner}
-              </div>
-            </details>
-            """, unsafe_allow_html=True)
+            with st.expander(f"Thought for {elapsed}"):
+                st.markdown(inner, unsafe_allow_html=True)
         elif msg["role"] == "assistant":
             st.markdown(f"<div class='chat-assistant'><div class='chat-label'>ScoutMind</div>{msg['content']}</div>", unsafe_allow_html=True)
 
-    # ── Thinking panel — open by default while pipeline runs ─────────────────
-    thinking_placeholder = st.empty()
+    # ── Live thinking panel using st.status() ────────────────────────────────
     thoughts = []
 
-    def _render_panel(is_done=False, elapsed_str=None):
-        rows = ""
+    def _build_md():
+        if not thoughts:
+            return "*Starting agents...*"
+        lines = []
         for t in thoughts:
-            preview = t["thought"][:200] + ("..." if len(t["thought"]) > 200 else "")
-            if t["status"] == "done":
-                color = "#10B981"
-                icon  = '<span style="color:#10B981;">✓</span>'
-            elif t["status"] == "error":
-                color = "#EF4444"
-                icon  = '<span style="color:#EF4444;">✗</span>'
-            else:
-                color = "#7C3AED"
-                icon  = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #DDD6FE;border-top-color:#7C3AED;animation:sm-spin 0.8s linear infinite;vertical-align:middle;margin-right:2px;"></span>'
-            rows += f"""
-            <div style="padding:8px 0;border-bottom:1px solid #EDE9FE;">
-              <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
-                          text-transform:uppercase;color:{color};margin-bottom:3px;display:flex;align-items:center;gap:6px;">{icon} {t["agent"]}</div>
-              <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
-            </div>"""
+            icon = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
+            lines.append(f"**{icon} {t['agent']}**  \n{t['thought'][:250]}")
+        return "\n\n".join(lines)
 
-        body = rows or '<div style="font-size:13px;color:#9CA3AF;font-style:italic;">Starting agents...</div>'
-
-        if is_done:
-            summary = f"""
-            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
-                        background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="#7C3AED" stroke-width="2"/>
-                <path d="M12 8v4l3 3" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thought for {elapsed_str}</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="margin-left:2px;">
-                <path d="M6 9l6 6 6-6" stroke="#7C3AED" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </div>"""
-            open_attr = ""
-        else:
-            summary = """
-            <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;
-                        background:#F5F3FF;border:1px solid #DDD6FE;border-radius:8px;">
-              <span style="display:inline-block;width:14px;height:14px;border-radius:50%;
-                           border:2px solid #DDD6FE;border-top-color:#7C3AED;
-                           animation:sm-spin 0.8s linear infinite;flex-shrink:0;"></span>
-              <span style="font-size:13px;color:#7C3AED;font-style:italic;">Thinking...</span>
-            </div>
-            <style>
-              @keyframes sm-spin { to { transform: rotate(360deg); } }
-            </style>"""
-            open_attr = "open"
-
-        thinking_placeholder.markdown(f"""
-        <details {open_attr} style="margin:16px 0 12px 0;">
-          <summary style="cursor:pointer;list-style:none;outline:none;display:block;">{summary}</summary>
-          <div style="margin-top:8px;padding:12px 16px;background:#F5F3FF;
-                      border:1px solid #DDD6FE;border-radius:8px;max-height:420px;overflow-y:auto;">
-            {body}
-          </div>
-        </details>
-        """, unsafe_allow_html=True)
-
-    def progress_callback(agent, thought, status):
-        found = False
-        for t in thoughts:
-            if t["agent"] == agent:
-                t.update({"thought": thought, "status": status})
-                found = True
-                break
-        if not found:
-            thoughts.append({"agent": agent, "thought": thought, "status": status})
-        _render_panel()
-
-    # Show initial "Thinking..." open panel
-    _render_panel()
-
-    # Run the full pipeline
     _start_time = _time.time()
-    result = run_pipeline(
-        unit=gen["unit"],
-        theme=gen["theme"],
-        meeting_date=gen.get("meeting_date"),
-        custom_duration=gen.get("custom_duration"),
-        conversation_history=st.session_state.messages,
-        progress_callback=progress_callback,
-    )
+
+    with st.status("Thinking...", expanded=True) as thinking_status:
+        content_placeholder = st.empty()
+        content_placeholder.markdown("*Starting agents...*")
+
+        def progress_callback(agent, thought, status):
+            found = False
+            for t in thoughts:
+                if t["agent"] == agent:
+                    t.update({"thought": thought, "status": status})
+                    found = True
+                    break
+            if not found:
+                thoughts.append({"agent": agent, "thought": thought, "status": status})
+            content_placeholder.markdown(_build_md())
+
+        result = run_pipeline(
+            unit=gen["unit"],
+            theme=gen["theme"],
+            meeting_date=gen.get("meeting_date"),
+            custom_duration=gen.get("custom_duration"),
+            meeting_start_time=gen.get("meeting_start_time"),
+            conversation_history=st.session_state.messages,
+            progress_callback=progress_callback,
+        )
+
+        elapsed = round(_time.time() - _start_time)
+        elapsed_str = (
+            f"{elapsed} second{'s' if elapsed != 1 else ''}"
+            if elapsed < 60
+            else f"{elapsed // 60} minute{'s' if elapsed // 60 != 1 else ''}"
+        )
+
+        thinking_status.update(
+            label=f"Thought for {elapsed_str}",
+            state="complete",
+            expanded=False,
+        )
+
     st.session_state.generating = None
 
-    elapsed = round(_time.time() - _start_time)
-    if elapsed < 60:
-        elapsed_str = f"{elapsed} second{'s' if elapsed != 1 else ''}"
-    else:
-        mins = elapsed // 60
-        elapsed_str = f"{mins} minute{'s' if mins != 1 else ''}"
-
-    # Collapse panel to "Thought for X seconds"
-    _render_panel(is_done=True, elapsed_str=elapsed_str)
-
-    # Build persistent HTML for the thinking message saved in chat history
-    thinking_html = ""
+    # Build plain-text thinking summary for history storage
+    thinking_lines = []
     for t in thoughts:
-        preview = t["thought"][:200] + ("..." if len(t["thought"]) > 200 else "")
-        color   = "#10B981" if t["status"] == "done" else "#EF4444" if t["status"] == "error" else "#7C3AED"
-        icon    = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
-        thinking_html += f"""
-        <div style="padding:8px 0;border-bottom:1px solid #EDE9FE;">
-          <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
-                      text-transform:uppercase;color:{color};margin-bottom:3px;">{icon} {t["agent"]}</div>
-          <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
-        </div>"""
+        icon = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
+        thinking_lines.append(f"**{icon} {t['agent']}**  \n{t['thought'][:200]}")
+    thinking_text = "\n\n".join(thinking_lines)
 
-    # Persist thinking summary as a chat message.
-    # DB format: "[elapsed:X seconds]<html>" — parsed back at render time.
-    db_content = f"[elapsed:{elapsed_str}]" + thinking_html
+    db_content = f"[elapsed:{elapsed_str}]" + thinking_text
     st.session_state.messages.append({
         "role":    "thinking",
-        "content": thinking_html,
+        "content": thinking_text,
         "elapsed": elapsed_str,
     })
     if st.session_state.current_session:
@@ -1046,7 +990,7 @@ def render_generating():
             update_session_title(
                 st.session_state.current_session,
                 user["id"],
-                f"{gen['unit']} — {gen['theme']} — {gen.get('meeting_date') or 'No date'}",
+                f"{gen['unit']} - {gen['theme']} - {gen.get('meeting_date') or 'No date'}",
             )
 
     st.rerun()

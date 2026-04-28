@@ -1,11 +1,7 @@
-import sys
-import os
 import json
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from langchain_core.messages import HumanMessage, SystemMessage
-from agents.base import get_llm, get_unit_config
+from agents.base import get_llm, get_unit_config, _cb
 from rag.retriever import retrieve_activities, retrieve_techniques
 
 
@@ -87,10 +83,12 @@ def run_activity_generator_agent(
     config = get_unit_config(unit)
 
     # Retrieve educational techniques for this unit
+    _cb("Activity Generator Agent", "Retrieving educational techniques from knowledge base...", "running")
     if not techniques:
         techniques = retrieve_techniques(theme, unit, n_results=4)
 
     # Retrieve full activity details from RAG for knowledge-base activities
+    _cb("Activity Generator Agent", f"Loading knowledge base details for {len(selected_activities)} activities...", "running")
     kb_activities = {}
     for act in selected_activities:
         if act.get("source") == "knowledge_base" and act.get("activity_id", "").startswith("ACT"):
@@ -130,6 +128,8 @@ Requirements:
 
 Respond with valid JSON only. No markdown, no preamble."""
 
+    _cb("Activity Generator Agent", f"Sending generation request to Claude for {len(selected_activities)} activities...", "running")
+
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=user_message),
@@ -137,6 +137,8 @@ Respond with valid JSON only. No markdown, no preamble."""
 
     response = llm.invoke(messages)
     content  = response.content.strip()
+
+    _cb("Activity Generator Agent", "Parsing and validating JSON response...", "running")
 
     # Strip markdown fences
     if content.startswith("```"):
@@ -180,6 +182,17 @@ Respond with valid JSON only."""
 
     result["unit"]  = unit
     result["theme"] = theme
+
+    # Re-attach source metadata from selected_activities so it flows to the formatter
+    slot_to_meta = {
+        a.get("slot"): {"source": a.get("source", "generated"), "activity_id": a.get("activity_id", "NEW")}
+        for a in selected_activities
+    }
+    for act in result.get("activities", []):
+        meta = slot_to_meta.get(act.get("slot"), {})
+        act["source"]      = meta.get("source", "generated")
+        act["activity_id"] = meta.get("activity_id", "NEW")
+
     return result
 
 
