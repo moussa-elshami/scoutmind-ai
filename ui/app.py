@@ -915,12 +915,19 @@ def render_generating():
         rows = ""
         for t in thoughts:
             preview = t["thought"][:200] + ("..." if len(t["thought"]) > 200 else "")
-            color   = "#10B981" if t["status"] == "done" else "#EF4444" if t["status"] == "error" else "#7C3AED"
-            icon    = "✓" if t["status"] == "done" else "✗" if t["status"] == "error" else "▸"
+            if t["status"] == "done":
+                color = "#10B981"
+                icon  = '<span style="color:#10B981;">✓</span>'
+            elif t["status"] == "error":
+                color = "#EF4444"
+                icon  = '<span style="color:#EF4444;">✗</span>'
+            else:
+                color = "#7C3AED"
+                icon  = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #DDD6FE;border-top-color:#7C3AED;animation:sm-spin 0.8s linear infinite;vertical-align:middle;margin-right:2px;"></span>'
             rows += f"""
             <div style="padding:8px 0;border-bottom:1px solid #EDE9FE;">
               <div style="font-size:11px;font-weight:700;letter-spacing:0.8px;
-                          text-transform:uppercase;color:{color};margin-bottom:3px;">{icon} {t["agent"]}</div>
+                          text-transform:uppercase;color:{color};margin-bottom:3px;display:flex;align-items:center;gap:6px;">{icon} {t["agent"]}</div>
               <div style="font-size:13px;color:#4B5563;font-style:italic;line-height:1.5;">{preview}</div>
             </div>"""
 
