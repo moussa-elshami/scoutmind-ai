@@ -68,17 +68,30 @@ Boy Scouts (Boys, ages 11-16, 4-hour meetings),
 Pioneers (Girls, ages 16-19, 4-hour meetings),
 Rovers (Boys, ages 16-19, 4-hour meetings).
 
-If the user asks about anything completely unrelated to scouting, politely decline
-and redirect them. Never use emojis or bullet points in your responses.
+Only decline and redirect if the user asks about something with NO connection to scouting
+(e.g. homework help, cooking recipes, news). Questions about scouting units, scout
+activities, themes, the LSA programme, meeting ideas, or unit characteristics are all
+ON-TOPIC and must be answered helpfully.
+
+CRITICAL HISTORY READING: Read the entire conversation history before responding.
+If the user has mentioned a unit name at any point — even if they just said "cubs" or
+"I'm leading Cubs" or "for my Cubs unit" — that IS the unit. Do not ask for it again.
+Similarly, if a theme has been mentioned anywhere, do not ask for it again.
 
 Follow this exact decision flow:
 
-STEP 0 — If the user asks for suggestions, ideas, or examples (e.g. "what themes can I use?",
-  "give me some ideas", "what are good activities for Cubs?"): answer helpfully in 2-3 sentences
-  of prose, then end with a gentle prompt to move forward (e.g. "Which of these interests you?").
+STEP 0 — If the user asks for suggestions, ideas, examples, OR information about scouting
+  (e.g. "what themes can I use?", "what do each unit like?", "what activities suit Cubs?",
+  "tell me about the units", "what kinds of themes work for Beavers?"): answer helpfully
+  in 2-3 sentences of prose about the specific topic, then end with a gentle prompt to
+  move forward. This step applies to ANY scouting knowledge question.
   -> ready_to_generate: false
 
-STEP 1 — If unit OR theme is missing and cannot be inferred: ask for it.
+STEP 1 — Check history AND the current message for unit and theme.
+  - If ONLY the unit is missing: ask for the unit only.
+  - If ONLY the theme is missing: ask for the theme only.
+  - If BOTH are missing: ask for both in one sentence.
+  Never ask for something already established in the conversation.
   -> ready_to_generate: false
 
 STEP 2 — If unit and theme are both clear but no date has been mentioned yet:
@@ -95,7 +108,8 @@ Never ask "shall I generate now?" — that is not a valid question.
 Never ask more than one question per response.
 Never use emojis or bullet points.
 
-CRITICAL: Every single response MUST be a JSON object. Never respond with plain prose.
+CRITICAL: Every single response MUST be a valid JSON object with BOTH "ready_to_generate"
+AND "response" keys. Never omit the "response" key. Never respond with plain prose.
 
 When ready to generate, respond with EXACTLY this JSON and nothing else:
 {
@@ -112,11 +126,44 @@ IMPORTANT:
 - custom_duration must be an INTEGER number of minutes (e.g. 180 for 3 hours, 240 for 4 hours) or null. Never a string, never a description.
 - meeting_start_time must be a 24-hour "HH:MM" string (e.g. "13:00" for 1:00 PM, "09:00" for 9:00 AM) or null if the user did not mention a start time.
 
-For ALL other responses (clarifying questions, suggestions, off-topic redirects):
+For ALL other responses (clarifying questions, suggestions, information, off-topic redirects),
+you MUST include the "response" key:
 {
   "ready_to_generate": false,
   "response": "Your helpful prose response here — no emojis, no bullet points"
-}"""
+}
+
+Examples of correct behaviour when context is established in history:
+- User said "I'm leading Cubs" earlier, now says "I want a nature theme" →
+  {"ready_to_generate": false, "response": "Wonderful. Do you have a date in mind for your Cubs nature meeting, or shall I use today?"}
+- User said "Cubs" and "friendship" but no date →
+  {"ready_to_generate": false, "response": "Do you have a date in mind for your Cubs friendship meeting? If not, I will use today."}
+- User says "no date" or "today" after being asked →
+  {"ready_to_generate": true, "unit": "Cubs", "theme": "Friendship", "meeting_date": null, ...}"""
+
+
+_UNIT_ALIASES: dict[str, str] = {
+    "beavers": "Beavers", "beaver": "Beavers",
+    "cubs": "Cubs", "cub": "Cubs",
+    "girl scouts": "Girl Scouts", "girl scout": "Girl Scouts",
+    "boy scouts": "Boy Scouts", "boy scout": "Boy Scouts",
+    "pioneers": "Pioneers", "pioneer": "Pioneers",
+    "rovers": "Rovers", "rover": "Rovers",
+}
+
+
+def _extract_unit_from_history(history: list, current_message: str = "") -> str | None:
+    """Scan conversation history and current message for an explicit unit mention."""
+    all_texts = [current_message] + [
+        (m.get("content", "") or "") for m in history if m.get("role") == "user"
+    ]
+    for text in all_texts:
+        lower = text.lower()
+        # Check multi-word aliases first (e.g. "girl scouts" before "scouts")
+        for alias in sorted(_UNIT_ALIASES, key=len, reverse=True):
+            if alias in lower:
+                return _UNIT_ALIASES[alias]
+    return None
 
 
 def run_conversation_agent(
@@ -134,10 +181,16 @@ def run_conversation_agent(
     # Inject today's date so relative expressions like "upcoming Saturday" resolve correctly
     today_str = datetime.now().strftime("%A, %d/%m/%Y")
     system_content = CONVERSATION_SYSTEM_PROMPT + f"\n\nToday's date is {today_str}. Use this to resolve relative date expressions (e.g. 'upcoming Saturday', 'next week') into exact DD/MM/YYYY dates."
-    if user_unit:
+
+    # Determine the effective unit: first check explicit mentions, then fall back to registration
+    detected_unit = _extract_unit_from_history(conversation_history or [], user_message)
+    effective_unit = detected_unit or user_unit
+
+    if effective_unit:
         system_content += (
-            f"\n\nThe user is registered as a {user_unit} unit leader. "
-            f"Pre-fill this as the default unit unless they specify otherwise."
+            f"\n\nCONTEXT REMINDER: The unit for this conversation is '{effective_unit}'. "
+            f"This is already established — do NOT ask the user which unit they lead. "
+            f"Your only remaining question (if needed) is the theme, then the date."
         )
 
     # Build strictly alternating message history for Claude
@@ -145,6 +198,18 @@ def run_conversation_agent(
     # Claude rejects: consecutive system messages, consecutive same-role messages
 
     history = conversation_history[-20:] if conversation_history else []
+
+    # Patterns that indicate a stuck/looping assistant response — sanitize before sending
+    _stuck_markers = [
+        "could you tell me which unit you're leading and the theme",
+        "could you tell me which unit you are leading and the theme",
+        "i'm here to help you plan your scout meeting",
+        "i am here to help you plan your scout meeting",
+    ]
+
+    def _is_stuck_response(text: str) -> bool:
+        lower = text.lower()
+        return any(m in lower for m in _stuck_markers)
 
     # Step 1: Flatten history into simple (role, text) tuples
     # Map all non-user roles to "assistant", truncate long content
@@ -157,7 +222,9 @@ def run_conversation_agent(
         if role == "user":
             flat.append(("user", text[:500]))
         elif role == "assistant":
-            flat.append(("assistant", text[:300]))
+            # Replace stuck loop messages so they don't prime the model to loop again
+            sanitized = "I need a bit more information to generate your plan." if _is_stuck_response(text) else text[:300]
+            flat.append(("assistant", sanitized))
         elif role == "plan":
             # Replace full plan with a short summary to avoid token bloat
             flat.append(("assistant", "I have generated the meeting plan as requested."))
@@ -204,10 +271,10 @@ def run_conversation_agent(
 
     content = content.strip()
 
-    _safe_default = (
-        "I'm here to help you plan your scout meeting. "
-        "Could you tell me which unit you're leading and the theme for your meeting?"
-    )
+    if effective_unit:
+        _safe_default = f"I have noted your {effective_unit} unit. What theme would you like for your meeting?"
+    else:
+        _safe_default = "Which unit are you planning for, and what theme would you like for the meeting?"
 
     def _ensure_response(d: dict) -> dict:
         if "response" not in d:
