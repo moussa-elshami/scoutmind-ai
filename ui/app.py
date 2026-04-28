@@ -98,6 +98,25 @@ if (!window._popstateAdded) {
     window._popstateAdded = true;
     window.addEventListener('popstate', function() { window.location.reload(); });
 }
+// Classify sidebar buttons for targeted CSS
+function _smStyleSidebarBtns() {
+    var sb = document.querySelector('[data-testid="stSidebar"]');
+    if (!sb) return;
+    sb.querySelectorAll('button').forEach(function(b) {
+        var t = b.textContent.trim();
+        b.classList.remove('sm-new-chat','sm-del','sm-signout','sm-nav');
+        if (t.indexOf('New Meeting Plan') !== -1) b.classList.add('sm-new-chat');
+        else if (t === '×') b.classList.add('sm-del');
+        else if (t === 'Sign Out') b.classList.add('sm-signout');
+        else if (t === 'Edit Profile') b.classList.add('sm-nav');
+    });
+}
+_smStyleSidebarBtns();
+if (!window._smSbObs) {
+    window._smSbObs = new MutationObserver(_smStyleSidebarBtns);
+    window._smSbObs.observe(document.body, {childList:true, subtree:true});
+}
+
 if (!window._pwRevealObserver) {
     function blockPasswordReveal() {
         document.querySelectorAll('input[type="password"]').forEach(function(el) {
@@ -132,18 +151,18 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Crimson+Pro:wght@300;400;500;600&display=swap');
 
 :root {
-    --purple-deep:    #4C1D95;
-    --purple-primary: #7C3AED;
-    --purple-light:   #EDE9FE;
-    --purple-faint:   #F5F3FF;
+    --purple-deep:    #6B44A0;
+    --purple-primary: #6B44A0;
+    --purple-light:   #FFFFFF;
+    --purple-faint:   #FFFFFF;
     --white:          #FFFFFF;
     --text-primary:   #1A1A2E;
     --text-secondary: #4B5563;
     --text-muted:     #9CA3AF;
     --border:         #E5E7EB;
-    --border-purple:  #DDD6FE;
-    --shadow:         0 4px 24px rgba(124,58,237,0.08);
-    --shadow-hover:   0 8px 32px rgba(124,58,237,0.16);
+    --border-purple:  rgba(107,68,160,0.2);
+    --shadow:         0 4px 24px rgba(107,68,160,0.08);
+    --shadow-hover:   0 8px 32px rgba(107,68,160,0.16);
 }
 
 html, body, [class*="css"] {
@@ -168,33 +187,75 @@ section[data-testid="stSidebar"] > div:first-child > div > div > button { displa
 }
 
 [data-testid="stSidebar"] {
-    background: #2D1155 !important;
-    border-right: none !important;
+    background: #3D2268 !important;
+    border-right: 1px solid rgba(255,255,255,0.1) !important;
 }
-[data-testid="stSidebar"] * { color: #E9D5FF !important; }
+[data-testid="stSidebar"] * { color: #FFFFFF !important; }
 
-/* All sidebar buttons — clean borderless like ChatGPT */
+/* Sidebar buttons — base */
 [data-testid="stSidebar"] .stButton button {
     background: transparent !important;
     border: none !important;
-    color: #E9D5FF !important;
+    color: rgba(255,255,255,0.82) !important;
     width: 100%;
     text-align: left;
-    padding: 8px 10px !important;
+    padding: 7px 10px !important;
     border-radius: 6px !important;
     font-family: 'Crimson Pro', serif !important;
     font-size: 14px !important;
     font-weight: 400 !important;
-    transition: background 0.15s ease;
+    transition: background 0.12s, color 0.12s;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     box-shadow: none !important;
+    min-height: 34px !important;
 }
 [data-testid="stSidebar"] .stButton button:hover {
-    background: rgba(255,255,255,0.08) !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #FFFFFF !important;
     border: none !important;
     box-shadow: none !important;
+}
+/* New chat — accent */
+[data-testid="stSidebar"] button.sm-new-chat {
+    background: rgba(255,255,255,0.16) !important;
+    border: 1px solid rgba(255,255,255,0.35) !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    padding: 9px 12px !important;
+}
+[data-testid="stSidebar"] button.sm-new-chat:hover {
+    background: rgba(255,255,255,0.26) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #FFFFFF !important;
+}
+/* Delete icon button */
+[data-testid="stSidebar"] button.sm-del {
+    color: rgba(255,255,255,0.3) !important;
+    padding: 3px 7px !important;
+    font-size: 15px !important;
+    min-height: 28px !important;
+    text-align: center !important;
+}
+[data-testid="stSidebar"] button.sm-del:hover {
+    background: rgba(255,255,255,0.15) !important;
+    color: #FFFFFF !important;
+}
+/* Muted nav (Edit Profile / Sign Out) */
+[data-testid="stSidebar"] button.sm-nav {
+    color: rgba(255,255,255,0.6) !important;
+    font-size: 13px !important;
+    padding: 6px 10px !important;
+}
+[data-testid="stSidebar"] button.sm-signout {
+    color: rgba(255,255,255,0.5) !important;
+    font-size: 13px !important;
+    padding: 6px 10px !important;
+}
+[data-testid="stSidebar"] button.sm-signout:hover {
+    color: #FFFFFF !important;
+    background: rgba(255,255,255,0.1) !important;
 }
 
 .stButton button {
@@ -309,20 +370,25 @@ section[data-testid="stSidebar"] > div:first-child > div > div > button { displa
 .agent-name.error { color: #EF4444; }
 
 .profile-card {
-    background: rgba(124,58,237,0.15);
-    border: 1px solid rgba(167,139,250,0.3);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 20px;
+    padding: 18px 4px 14px 4px;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+.profile-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #FFFFFF; flex-shrink: 0;
 }
 .profile-name {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 18px;
-    font-weight: 600;
-    color: #F3E8FF !important;
-    margin-bottom: 4px;
+    font-size: 15px; font-weight: 600;
+    color: #FFFFFF !important;
+    line-height: 1.2; margin: 0;
 }
-.profile-detail { font-size: 13px; color: #C4B5FD !important; line-height: 1.6; }
+.profile-detail { font-size: 11px; color: rgba(255,255,255,0.7) !important; margin-top: 2px; }
 
 .landing-title {
     font-family: 'Cormorant Garamond', serif;
@@ -364,40 +430,12 @@ hr { border: none; border-top: 1px solid var(--border-purple); margin: 24px 0; }
     border-radius: 6px !important;
 }
 
-/* ── Session History Items ── */
-.session-item {
-    padding: 10px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    border: 1px solid transparent;
-}
-.session-item:hover {
-    background: rgba(124,58,237,0.1);
-    border-color: rgba(167,139,250,0.3);
-}
-.session-title {
-    font-size: 14px;
-    color: #E9D5FF !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.session-date {
-    font-size: 11px;
-    color: #A78BFA !important;
-    margin-top: 2px;
-}
-
-/* ── New Chat Button ── */
-.new-chat-btn button {
-    background: var(--purple-primary) !important;
-    color: white !important;
-    width: 100%;
-    border-radius: 8px !important;
-    font-size: 15px !important;
-    padding: 12px !important;
-    margin-bottom: 16px;
+/* ── Sidebar divider ── */
+.sb-divider { height: 1px; background: rgba(255,255,255,0.15); margin: 10px 4px; }
+/* ── Sidebar section label ── */
+.sb-label {
+    font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: rgba(255,255,255,0.5); font-weight: 600; padding: 0 4px 8px 4px;
 }
 
 /* ── Tab Styling ── */
@@ -516,11 +554,11 @@ def render_landing():
             if st.button("Register", key="landing_register", use_container_width=True): go_to("register")
         st.markdown("""
         <div style='margin-top:48px;display:flex;gap:32px;'>
-            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#7C3AED;'>6</div>
+            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#6B44A0;'>6</div>
                  <div style='font-size:13px;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;'>Scout Units</div></div>
-            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#7C3AED;'>4</div>
+            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#6B44A0;'>4</div>
                  <div style='font-size:13px;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;'>Districts</div></div>
-            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#7C3AED;'>AI</div>
+            <div><div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#6B44A0;'>AI</div>
                  <div style='font-size:13px;color:#6B7280;letter-spacing:0.5px;text-transform:uppercase;'>Powered</div></div>
         </div>
         """, unsafe_allow_html=True)
@@ -535,7 +573,7 @@ def render_landing():
             st.markdown(f"""
             <div class='scout-card'>
                 <div style='font-family:Cormorant Garamond,serif;font-size:13px;text-transform:uppercase;
-                            letter-spacing:1px;color:#7C3AED;margin-bottom:10px;font-weight:600;'>{title}</div>
+                            letter-spacing:1px;color:#6B44A0;margin-bottom:10px;font-weight:600;'>{title}</div>
                 <div style='font-size:16px;color:#374151;line-height:1.6;'>{body}</div>
             </div>""", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -555,7 +593,7 @@ def render_register():
         st.markdown("<div style='padding-top:40px;'>", unsafe_allow_html=True)
         st.markdown("""
         <div style='text-align:center;margin-bottom:32px;'>
-            <div style='font-family:Cormorant Garamond,serif;font-size:40px;font-weight:700;color:#4C1D95;'>Create Account</div>
+            <div style='font-family:Cormorant Garamond,serif;font-size:40px;font-weight:700;color:#6B44A0;'>Create Account</div>
             <div style='font-size:16px;color:#6B7280;margin-top:6px;'>Join ScoutMind — Lebanese Scouts Association</div>
         </div>""", unsafe_allow_html=True)
 
@@ -636,7 +674,7 @@ def render_login():
         st.markdown("""
         <div style='text-align:center;margin-bottom:32px;'>
             <div style='font-family:Cormorant Garamond,serif;font-size:48px;font-weight:700;
-                        color:#4C1D95;letter-spacing:-1px;'>ScoutMind</div>
+                        color:#6B44A0;letter-spacing:-1px;'>ScoutMind</div>
             <div style='font-size:16px;color:#6B7280;margin-top:6px;'>Sign in to your account</div>
         </div>""", unsafe_allow_html=True)
 
@@ -680,12 +718,20 @@ def render_login():
 # ══════════════════════════════════════════════════════════════════════════════
 def render_sidebar():
     user = st.session_state.user
+    initials = "".join(w[0].upper() for w in user["full_name"].split()[:2])
+
     with st.sidebar:
+        # Profile card with avatar
         st.markdown(f"""
         <div class='profile-card'>
-            <div class='profile-name'>{user['full_name']}</div>
-            <div class='profile-detail'>{user['unit']} Leader<br>{user['group_name']} &mdash; {user['district']}</div>
-        </div>""", unsafe_allow_html=True)
+            <div class='profile-avatar'>{initials}</div>
+            <div>
+                <div class='profile-name'>{user['full_name']}</div>
+                <div class='profile-detail'>{user['unit']} &middot; {user['group_name']}</div>
+            </div>
+        </div>
+        <div class='sb-divider'></div>
+        """, unsafe_allow_html=True)
 
         if st.button("+ New Meeting Plan", key="new_chat", use_container_width=True):
             st.session_state.current_session = None
@@ -694,23 +740,17 @@ def render_sidebar():
             st.session_state.generating      = None
             go_to("app")
 
-        st.markdown("<hr style='border-color:rgba(167,139,250,0.2);margin:8px 0;'>", unsafe_allow_html=True)
-        if st.button("Edit Profile", key="nav_profile", use_container_width=True): go_to("profile")
-        st.markdown("<hr style='border-color:rgba(167,139,250,0.2);margin:8px 0;'>", unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style='font-size:11px;letter-spacing:1px;text-transform:uppercase;
-                    color:#A78BFA;font-weight:600;padding:4px 0 8px 0;'>Recent Plans</div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='sb-label'>Recent Plans</div>", unsafe_allow_html=True)
 
         sessions = get_user_sessions(user["id"])
         if not sessions:
-            st.markdown("<div style='font-size:14px;color:#7C6A9E;padding:8px 0;font-style:italic;'>No plans generated yet.</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:13px;color:rgba(255,255,255,0.45);padding:4px 4px 8px;font-style:italic;'>No plans yet.</div>", unsafe_allow_html=True)
         else:
             for session in sessions[:20]:
                 cs, cd = st.columns([5, 1])
                 with cs:
-                    label = session["title"][:32] + "..." if len(session["title"]) > 32 else session["title"]
+                    label = session["title"][:30] + "…" if len(session["title"]) > 30 else session["title"]
                     if st.button(label, key=f"sess_{session['id']}", use_container_width=True):
                         st.session_state.current_session = session["id"]
                         st.session_state.confirm_delete  = None
@@ -719,15 +759,15 @@ def render_sidebar():
                         st.session_state.messages = get_session_messages(session["id"], user["id"])
                         go_to("app")
                 with cd:
-                    if st.button("x", key=f"del_{session['id']}"):
+                    if st.button("×", key=f"del_{session['id']}"):
                         st.session_state.confirm_delete = session["id"]
                         st.rerun()
 
                 if st.session_state.confirm_delete == session["id"]:
-                    st.markdown("<div style='font-size:12px;color:#F87171;padding:4px 0;'>Delete this plan?</div>", unsafe_allow_html=True)
+                    st.markdown("<div style='font-size:12px;color:rgba(255,255,255,0.75);padding:4px 4px 2px;'>Delete this plan?</div>", unsafe_allow_html=True)
                     cy, cn = st.columns(2)
                     with cy:
-                        if st.button("Yes", key=f"yes_{session['id']}", use_container_width=True):
+                        if st.button("Delete", key=f"yes_{session['id']}", use_container_width=True):
                             delete_session(session["id"], user["id"])
                             st.session_state.confirm_delete = None
                             if st.session_state.current_session == session["id"]:
@@ -736,11 +776,15 @@ def render_sidebar():
                                 st.session_state.last_plan_state = None
                             st.rerun()
                     with cn:
-                        if st.button("No", key=f"no_{session['id']}", use_container_width=True):
+                        if st.button("Cancel", key=f"no_{session['id']}", use_container_width=True):
                             st.session_state.confirm_delete = None
                             st.rerun()
 
-        st.markdown("<hr style='border-color:rgba(167,139,250,0.2);'>", unsafe_allow_html=True)
+        # Footer nav
+        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='sb-divider'></div>", unsafe_allow_html=True)
+        if st.button("Edit Profile", key="nav_profile", use_container_width=True):
+            go_to("profile")
         if st.button("Sign Out", key="logout", use_container_width=True):
             logout()
 
@@ -753,8 +797,8 @@ def render_app():
     user = st.session_state.user
 
     st.markdown(f"""
-    <div style='padding:8px 0 24px 0;border-bottom:1px solid #EDE9FE;margin-bottom:24px;'>
-        <div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#4C1D95;'>ScoutMind</div>
+    <div style='padding:8px 0 24px 0;border-bottom:1px solid rgba(107,68,160,0.15);margin-bottom:24px;'>
+        <div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#6B44A0;'>ScoutMind</div>
         <div style='font-size:15px;color:#6B7280;'>{user['unit']} Unit &mdash; {user['group_name']}, {user['district']} District</div>
     </div>""", unsafe_allow_html=True)
 
@@ -891,8 +935,8 @@ def render_generating():
     gen  = st.session_state.generating
 
     st.markdown(f"""
-    <div style='padding:8px 0 24px 0;border-bottom:1px solid #EDE9FE;margin-bottom:24px;'>
-        <div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#4C1D95;'>ScoutMind</div>
+    <div style='padding:8px 0 24px 0;border-bottom:1px solid rgba(107,68,160,0.15);margin-bottom:24px;'>
+        <div style='font-family:Cormorant Garamond,serif;font-size:32px;font-weight:700;color:#6B44A0;'>ScoutMind</div>
         <div style='font-size:15px;color:#6B7280;'>Generating your {gen['unit']} meeting plan on <em>{gen['theme']}</em>...</div>
     </div>""", unsafe_allow_html=True)
 
