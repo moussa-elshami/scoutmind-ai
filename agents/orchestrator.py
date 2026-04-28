@@ -1,8 +1,18 @@
 import sys
 import os
 import json
+import threading
 from typing import TypedDict, Annotated, Optional
 from datetime import datetime
+
+# Thread-local storage so each user session has its own callback
+_active_callback = threading.local()
+
+def _cb(agent: str, thought: str, status: str):
+    """Fire the active callback if one is registered for this thread."""
+    fn = getattr(_active_callback, 'fn', None)
+    if fn:
+        fn(agent, thought, status)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -224,11 +234,9 @@ def run_conversation_agent(
 def node_context_awareness(state: MeetingPlanState) -> MeetingPlanState:
     """Node 1: Check weather and occasions."""
     state["current_agent"] = "Context Awareness Agent"
-    state["agent_thoughts"].append({
-        "agent":   "Context Awareness Agent",
-        "thought": f"Checking weather in Beirut and Lebanese calendar for {state.get('meeting_date', 'today')}...",
-        "status":  "running",
-    })
+    running_thought = f"Checking weather in Beirut and Lebanese calendar for {state.get('meeting_date', 'today')}..."
+    state["agent_thoughts"].append({"agent": "Context Awareness Agent", "thought": running_thought, "status": "running"})
+    _cb("Context Awareness Agent", running_thought, "running")
     try:
         context = run_context_awareness_agent(state.get("meeting_date"))
         state["context"] = context
@@ -238,9 +246,11 @@ def node_context_awareness(state: MeetingPlanState) -> MeetingPlanState:
         thought_text += f"Generated {len(context['advisories'])} advisory/advisories."
         state["agent_thoughts"][-1]["thought"] = thought_text
         state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Context Awareness Agent", thought_text, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Context Awareness Agent failed: {str(e)}"
+        _cb("Context Awareness Agent", str(e), "error")
     return state
 
 
@@ -250,32 +260,30 @@ def node_educational_design(state: MeetingPlanState) -> MeetingPlanState:
     unit   = state["unit"]
     theme  = state["theme"]
     config = get_unit_config(unit)
-
     content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - 30
-
-    state["agent_thoughts"].append({
-        "agent":   "Educational Design Agent",
-        "thought": f"Designing activity sequence for {unit} unit ({content_minutes} minutes of content) on theme: {theme}. Applying educational therapy frameworks...",
-        "status":  "running",
-    })
+    running_thought = f"Designing activity sequence for {unit} unit ({content_minutes} minutes of content) on theme: {theme}. Applying educational therapy frameworks..."
+    state["agent_thoughts"].append({"agent": "Educational Design Agent", "thought": running_thought, "status": "running"})
+    _cb("Educational Design Agent", running_thought, "running")
     try:
         result = run_educational_design_agent(
-            unit=unit,
-            theme=theme,
+            unit=unit, theme=theme,
             total_content_minutes=content_minutes,
             custom_duration=state.get("custom_duration"),
         )
         state["sequence"] = result.get("sequence", [])
-        state["agent_thoughts"][-1]["thought"] = (
+        done_thought = (
             f"Designed {len(state['sequence'])} activity slots. "
             f"First: {state['sequence'][0]['activity_type'] if state['sequence'] else 'N/A'}, "
             f"Last: {state['sequence'][-1]['activity_type'] if state['sequence'] else 'N/A'}. "
             f"Educational rationale: {result.get('educational_notes', '')[:100]}..."
         )
-        state["agent_thoughts"][-1]["status"] = "done"
+        state["agent_thoughts"][-1]["thought"] = done_thought
+        state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Educational Design Agent", done_thought, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Educational Design Agent failed: {str(e)}"
+        _cb("Educational Design Agent", str(e), "error")
     return state
 
 
@@ -285,32 +293,29 @@ def node_scouting_context(state: MeetingPlanState) -> MeetingPlanState:
     context  = state.get("context", {})
     occasion = context.get("occasion", {}).get("name") if context else None
     weather  = context.get("weather", {}).get("advisory") if context else None
-
-    state["agent_thoughts"].append({
-        "agent":   "Scouting Context Agent",
-        "thought": f"Querying knowledge base for {state['unit']} activities matching theme '{state['theme']}'. Aligning with scouting values and Lebanese context...",
-        "status":  "running",
-    })
+    running_thought = f"Querying knowledge base for {state['unit']} activities matching theme '{state['theme']}'. Aligning with scouting values and Lebanese context..."
+    state["agent_thoughts"].append({"agent": "Scouting Context Agent", "thought": running_thought, "status": "running"})
+    _cb("Scouting Context Agent", running_thought, "running")
     try:
         result = run_scouting_context_agent(
-            unit=state["unit"],
-            theme=state["theme"],
-            sequence=state["sequence"],
-            occasion=occasion,
-            weather=weather,
+            unit=state["unit"], theme=state["theme"],
+            sequence=state["sequence"], occasion=occasion, weather=weather,
         )
         state["selected"] = result
         selected_count = len(result.get("selected_activities", []))
         rag_pool       = result.get("rag_pool_size", 0)
-        state["agent_thoughts"][-1]["thought"] = (
+        done_thought = (
             f"Selected {selected_count} activities. "
             f"RAG knowledge base provided {rag_pool} candidate activities. "
             f"Context notes: {result.get('context_notes', '')[:100]}..."
         )
-        state["agent_thoughts"][-1]["status"] = "done"
+        state["agent_thoughts"][-1]["thought"] = done_thought
+        state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Scouting Context Agent", done_thought, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Scouting Context Agent failed: {str(e)}"
+        _cb("Scouting Context Agent", str(e), "error")
     return state
 
 
@@ -318,30 +323,28 @@ def node_activity_generator(state: MeetingPlanState) -> MeetingPlanState:
     """Node 4: Generate full activity descriptions."""
     state["current_agent"] = "Activity Generator Agent"
     selected = state.get("selected", {}).get("selected_activities", [])
-
-    state["agent_thoughts"].append({
-        "agent":   "Activity Generator Agent",
-        "thought": f"Writing full descriptions for {len(selected)} activities. Generating objectives, step-by-step instructions, materials lists, and leader tips...",
-        "status":  "running",
-    })
+    running_thought = f"Writing full descriptions for {len(selected)} activities. Generating objectives, step-by-step instructions, materials lists, and leader tips..."
+    state["agent_thoughts"].append({"agent": "Activity Generator Agent", "thought": running_thought, "status": "running"})
+    _cb("Activity Generator Agent", running_thought, "running")
     try:
         result = run_activity_generator_agent(
-            unit=state["unit"],
-            theme=state["theme"],
-            selected_activities=selected,
+            unit=state["unit"], theme=state["theme"], selected_activities=selected,
         )
         state["generated"] = result
         activities = result.get("activities", [])
         materials  = result.get("master_materials_list", [])
-        state["agent_thoughts"][-1]["thought"] = (
+        done_thought = (
             f"Generated full descriptions for {len(activities)} activities. "
             f"Master materials list contains {len(materials)} items. "
             f"All activities include objectives, instructions, and leader tips."
         )
-        state["agent_thoughts"][-1]["status"] = "done"
+        state["agent_thoughts"][-1]["thought"] = done_thought
+        state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Activity Generator Agent", done_thought, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Activity Generator Agent failed: {str(e)}"
+        _cb("Activity Generator Agent", str(e), "error")
     return state
 
 
@@ -351,32 +354,29 @@ def node_validation(state: MeetingPlanState) -> MeetingPlanState:
     activities = state.get("generated", {}).get("activities", [])
     config     = get_unit_config(state["unit"])
     content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - 30
-
-    state["agent_thoughts"].append({
-        "agent":   "Validation Agent",
-        "thought": f"Validating {len(activities)} activities against meeting rules. Checking timing, energy bookends, cognitive load balance...",
-        "status":  "running",
-    })
+    running_thought = f"Validating {len(activities)} activities against meeting rules. Checking timing, energy bookends, cognitive load balance..."
+    state["agent_thoughts"].append({"agent": "Validation Agent", "thought": running_thought, "status": "running"})
+    _cb("Validation Agent", running_thought, "running")
     try:
         result = run_validation_agent(
-            unit=state["unit"],
-            theme=state["theme"],
-            activities=activities,
-            total_content_minutes=content_minutes,
-            custom_duration=state.get("custom_duration"),
+            unit=state["unit"], theme=state["theme"], activities=activities,
+            total_content_minutes=content_minutes, custom_duration=state.get("custom_duration"),
         )
         state["validation"] = result
-        state["agent_thoughts"][-1]["thought"] = (
+        done_thought = (
             f"Validation {'passed' if result['is_valid'] else 'failed'}. "
             f"{len(result['passed'])} checks passed, "
             f"{len(result['warnings'])} warnings, "
             f"{len(result['issues'])} issues. "
             f"{result['summary']}"
         )
-        state["agent_thoughts"][-1]["status"] = "done"
+        state["agent_thoughts"][-1]["thought"] = done_thought
+        state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Validation Agent", done_thought, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Validation Agent failed: {str(e)}"
+        _cb("Validation Agent", str(e), "error")
     return state
 
 
@@ -385,35 +385,31 @@ def node_formatting(state: MeetingPlanState) -> MeetingPlanState:
     state["current_agent"] = "Formatting Agent"
     activities = state.get("generated", {}).get("activities", [])
     materials  = state.get("generated", {}).get("master_materials_list", [])
-
-    state["agent_thoughts"].append({
-        "agent":   "Formatting Agent",
-        "thought": "Assembling final meeting plan document. Adding timestamps, consolidating materials list, applying professional formatting...",
-        "status":  "running",
-    })
+    running_thought = "Assembling final meeting plan document. Adding timestamps, consolidating materials list, applying professional formatting..."
+    state["agent_thoughts"].append({"agent": "Formatting Agent", "thought": running_thought, "status": "running"})
+    _cb("Formatting Agent", running_thought, "running")
     try:
         plan = run_formatting_agent(
-            unit=state["unit"],
-            theme=state["theme"],
-            meeting_date=state.get("meeting_date"),
-            activities=activities,
-            master_materials=materials,
-            context=state.get("context"),
-            validation=state.get("validation"),
-            custom_duration=state.get("custom_duration"),
+            unit=state["unit"], theme=state["theme"],
+            meeting_date=state.get("meeting_date"), activities=activities,
+            master_materials=materials, context=state.get("context"),
+            validation=state.get("validation"), custom_duration=state.get("custom_duration"),
         )
-        state["plan"]      = plan
-        state["plan_text"] = plan_to_markdown(plan)
+        state["plan"]        = plan
+        state["plan_text"]   = plan_to_markdown(plan)
         state["is_complete"] = True
-        state["agent_thoughts"][-1]["thought"] = (
+        done_thought = (
             f"Meeting plan assembled successfully. "
             f"{len(plan['schedule'])} schedule segments. "
             f"Plan ready for display and PDF export."
         )
-        state["agent_thoughts"][-1]["status"] = "done"
+        state["agent_thoughts"][-1]["thought"] = done_thought
+        state["agent_thoughts"][-1]["status"]  = "done"
+        _cb("Formatting Agent", done_thought, "done")
     except Exception as e:
         state["agent_thoughts"][-1]["status"] = "error"
         state["error"] = f"Formatting Agent failed: {str(e)}"
+        _cb("Formatting Agent", str(e), "error")
     return state
 
 
@@ -477,6 +473,9 @@ def run_pipeline(
     Returns:
         Final state dict with plan, plan_text, agent_thoughts, and validation
     """
+    # Register callback for this thread so nodes can fire it live
+    _active_callback.fn = progress_callback
+
     pipeline = build_pipeline()
 
     initial_state: MeetingPlanState = {
@@ -503,13 +502,8 @@ def run_pipeline(
 
     final_state = pipeline.invoke(initial_state)
 
-    if progress_callback and final_state.get("agent_thoughts"):
-        for thought in final_state["agent_thoughts"]:
-            progress_callback(
-                thought["agent"],
-                thought["thought"],
-                thought["status"],
-            )
+    # Clear callback after pipeline completes
+    _active_callback.fn = None
 
     return final_state
 
