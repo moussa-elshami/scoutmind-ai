@@ -1,6 +1,8 @@
 import re
-import streamlit as st
+import sys
 import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import streamlit as st
 import time as _time
 
 from dotenv import load_dotenv
