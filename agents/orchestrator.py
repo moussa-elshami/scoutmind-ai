@@ -1,33 +1,22 @@
-import sys
-import os
 import json
-import threading
-from typing import TypedDict, Annotated, Optional
+import re
+from typing import TypedDict, Optional
 from datetime import datetime
-
-# Thread-local storage so each user session has its own callback
-_active_callback = threading.local()
-
-def _cb(agent: str, thought: str, status: str):
-    """Fire the active callback if one is registered for this thread."""
-    fn = getattr(_active_callback, 'fn', None)
-    if fn:
-        fn(agent, thought, status)
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
 load_dotenv()
 
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, SystemMessage
-from agents.base import get_llm, get_unit_config
+from agents.base import get_llm, get_unit_config, _active_callback, _cb, BOOKEND_MINUTES
 from agents.educational_design  import run_educational_design_agent
 from agents.scouting_context     import run_scouting_context_agent
 from agents.activity_generator   import run_activity_generator_agent
 from agents.context_awareness    import run_context_awareness_agent
 from agents.validation           import run_validation_agent
 from agents.formatting           import run_formatting_agent, plan_to_text, plan_to_markdown
+from tools.time_validator        import validate_timing
+from tools.plan_evaluator        import evaluate_plan
 
 
 # ── State Definition ──────────────────────────────────────────────────────────
@@ -49,6 +38,9 @@ class MeetingPlanState(TypedDict):
     validation:       Optional[dict]
     plan:             Optional[dict]
     plan_text:        Optional[str]
+
+    # Scheduling
+    meeting_start_time: Optional[str]
 
     # Pipeline control
     current_agent:    str
@@ -73,8 +65,8 @@ Beavers (Mixed, ages 3-7, 3-hour meetings),
 Cubs (Mixed, ages 7-11, 3-hour meetings),
 Girl Scouts (Girls, ages 11-16, 4-hour meetings),
 Boy Scouts (Boys, ages 11-16, 4-hour meetings),
-Pioneers (Girls, ages 11-16, 4-hour meetings),
-Rovers (Boys, ages 16-22, 4-hour meetings).
+Pioneers (Girls, ages 16-19, 4-hour meetings),
+Rovers (Boys, ages 16-19, 4-hour meetings).
 
 If the user asks about anything unrelated to scout meeting planning, politely decline
 and redirect them. Never use emojis or bullet points in your responses.
@@ -105,8 +97,13 @@ When ready to generate, respond with EXACTLY this JSON and nothing else:
   "theme": "Friendship",
   "meeting_date": "27/04/2026",
   "custom_duration": null,
+  "meeting_start_time": null,
   "response": "One sentence confirming what you are generating — no emojis"
 }
+
+IMPORTANT:
+- custom_duration must be an INTEGER number of minutes (e.g. 180 for 3 hours, 240 for 4 hours) or null. Never a string, never a description.
+- meeting_start_time must be a 24-hour "HH:MM" string (e.g. "13:00" for 1:00 PM, "09:00" for 9:00 AM) or null if the user did not mention a start time.
 
 When asking a clarifying question:
 {
@@ -206,9 +203,19 @@ def run_conversation_agent(
 
     content = content.strip()
 
+    _safe_default = (
+        "I'm here to help you plan your scout meeting. "
+        "Could you tell me which unit you're leading and the theme for your meeting?"
+    )
+
+    def _ensure_response(d: dict) -> dict:
+        if "response" not in d:
+            d["response"] = _safe_default
+        return d
+
     # Try direct parse
     try:
-        return json.loads(content)
+        return _ensure_response(json.loads(content))
     except json.JSONDecodeError:
         pass
 
@@ -217,15 +224,24 @@ def run_conversation_agent(
     end   = content.rfind("}") + 1
     if start != -1 and end > start:
         try:
-            return json.loads(content[start:end])
+            return _ensure_response(json.loads(content[start:end]))
         except json.JSONDecodeError:
             pass
 
-    # Final fallback: return only the non-JSON prose as the response
-    prose = content[:start].strip() if start != -1 else content.strip()
+    # Final fallback: use prose that precedes the broken JSON only when it is
+    # substantial enough to be a real sentence; otherwise return a safe default
+    # so the user never sees an empty string or raw broken JSON.
+    if start > 20:
+        prose = content[:start].strip()
+        if len(prose) >= 20:
+            return {"ready_to_generate": False, "response": prose}
+
     return {
         "ready_to_generate": False,
-        "response": prose or content,
+        "response": (
+            "I'm here to help you plan your scout meeting. "
+            "Could you tell me which unit you're leading and the theme for your meeting?"
+        ),
     }
 
 
@@ -260,7 +276,7 @@ def node_educational_design(state: MeetingPlanState) -> MeetingPlanState:
     unit   = state["unit"]
     theme  = state["theme"]
     config = get_unit_config(unit)
-    content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - 30
+    content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - BOOKEND_MINUTES
     running_thought = f"Designing activity sequence for {unit} unit ({content_minutes} minutes of content) on theme: {theme}. Applying educational therapy frameworks..."
     state["agent_thoughts"].append({"agent": "Educational Design Agent", "thought": running_thought, "status": "running"})
     _cb("Educational Design Agent", running_thought, "running")
@@ -353,15 +369,27 @@ def node_validation(state: MeetingPlanState) -> MeetingPlanState:
     state["current_agent"] = "Validation Agent"
     activities = state.get("generated", {}).get("activities", [])
     config     = get_unit_config(state["unit"])
-    content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - 30
+    content_minutes = (state.get("custom_duration") or config["meeting_duration"]) - BOOKEND_MINUTES
     running_thought = f"Validating {len(activities)} activities against meeting rules. Checking timing, energy bookends, cognitive load balance..."
     state["agent_thoughts"].append({"agent": "Validation Agent", "thought": running_thought, "status": "running"})
     _cb("Validation Agent", running_thought, "running")
     try:
+        # Auto-correct timing before validation so Rule 1 runs on fixed durations
+        timing = validate_timing(state["unit"], activities, state.get("custom_duration"))
+        if timing["adjustments_made"]:
+            activities = timing["activities"]
+            state["generated"]["activities"] = activities
+            _cb("Validation Agent",
+                f"Time validator corrected {len(timing['adjustments_made'])} duration(s): "
+                + "; ".join(timing["adjustments_made"]),
+                "running")
+
         result = run_validation_agent(
             unit=state["unit"], theme=state["theme"], activities=activities,
             total_content_minutes=content_minutes, custom_duration=state.get("custom_duration"),
         )
+        if timing["adjustments_made"]:
+            result["time_corrections"] = timing["adjustments_made"]
         state["validation"] = result
         done_thought = (
             f"Validation {'passed' if result['is_valid'] else 'failed'}. "
@@ -394,13 +422,20 @@ def node_formatting(state: MeetingPlanState) -> MeetingPlanState:
             meeting_date=state.get("meeting_date"), activities=activities,
             master_materials=materials, context=state.get("context"),
             validation=state.get("validation"), custom_duration=state.get("custom_duration"),
+            start_time_minutes=_parse_start_time(state.get("meeting_start_time")),
         )
+        quality = evaluate_plan(
+            unit=state["unit"], activities=activities,
+            context=state.get("context"), custom_duration=state.get("custom_duration"),
+        )
+        plan["quality_score"] = quality
         state["plan"]        = plan
         state["plan_text"]   = plan_to_markdown(plan)
         state["is_complete"] = True
         done_thought = (
             f"Meeting plan assembled successfully. "
             f"{len(plan['schedule'])} schedule segments. "
+            f"Quality score: {quality['total']}/100 (Grade {quality['grade']}). "
             f"Plan ready for display and PDF export."
         )
         state["agent_thoughts"][-1]["thought"] = done_thought
@@ -420,6 +455,33 @@ def should_continue(state: MeetingPlanState) -> str:
     if state.get("error"):
         return "end"
     return "continue"
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _parse_start_time(value) -> int:
+    """Convert a meeting start-time value to minutes since midnight.
+    Accepts: "13:00", "1:00 PM", "13:30", integers (already minutes). Returns 0 if unparseable.
+    """
+    if not value:
+        return 0
+    if isinstance(value, int):
+        return value
+    s = str(value).strip()
+    # HH:MM 24-hour
+    m = re.match(r'^(\d{1,2}):(\d{2})$', s)
+    if m:
+        return int(m.group(1)) * 60 + int(m.group(2))
+    # H:MM AM/PM
+    m = re.match(r'^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$', s)
+    if m:
+        h, mins, period = int(m.group(1)), int(m.group(2)), m.group(3).upper()
+        if period == 'PM' and h != 12:
+            h += 12
+        elif period == 'AM' and h == 12:
+            h = 0
+        return h * 60 + mins
+    return 0
 
 
 # ── Build the Graph ───────────────────────────────────────────────────────────
@@ -456,6 +518,7 @@ def run_pipeline(
     theme: str,
     meeting_date: str = None,
     custom_duration: int = None,
+    meeting_start_time: str = None,
     conversation_history: list = None,
     progress_callback=None,
 ) -> dict:
@@ -467,12 +530,20 @@ def run_pipeline(
         theme:                Meeting theme
         meeting_date:         Optional date string DD/MM/YYYY
         custom_duration:      Optional custom meeting duration in minutes
+        meeting_start_time:   Optional start time string "HH:MM" (24 h) or "H:MM AM/PM"
         conversation_history: Previous conversation messages
         progress_callback:    Optional callback(agent_name, thought, status)
 
     Returns:
         Final state dict with plan, plan_text, agent_thoughts, and validation
     """
+    # Normalize custom_duration — the LLM sometimes returns it as a string
+    if custom_duration is not None:
+        try:
+            custom_duration = int(custom_duration)
+        except (ValueError, TypeError):
+            custom_duration = None
+
     # Register callback for this thread so nodes can fire it live
     _active_callback.fn = progress_callback
 
@@ -483,6 +554,7 @@ def run_pipeline(
         "theme":                  theme,
         "meeting_date":           meeting_date,
         "custom_duration":        custom_duration,
+        "meeting_start_time":     meeting_start_time,
         "user_messages":          [],
         "conversation_history":   conversation_history or [],
         "context":                None,

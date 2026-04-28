@@ -1,9 +1,4 @@
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from agents.base import get_unit_config, ACTIVITY_TYPES
+from agents.base import get_unit_config, ACTIVITY_TYPES, BOOKEND_MINUTES
 
 
 def validate_timing(
@@ -24,7 +19,7 @@ def validate_timing(
     """
     config          = get_unit_config(unit)
     meeting_minutes = custom_duration or config["meeting_duration"]
-    content_minutes = meeting_minutes - 30  # subtract fixed bookends
+    content_minutes = meeting_minutes - BOOKEND_MINUTES
     actual_total    = sum(a.get("duration_minutes", 0) for a in activities)
     difference      = actual_total - content_minutes
     tolerance       = 5

@@ -1,11 +1,5 @@
-import os
 import json
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import chromadb
-from chromadb.utils import embedding_functions
 from rag.embeddings import (
     get_chroma_client,
     get_embedding_function,
@@ -19,13 +13,21 @@ UNIT_AGE_MAP = {
     "Cubs":        (7,  11),
     "Girl Scouts": (11, 16),
     "Boy Scouts":  (11, 16),
-    "Pioneers":    (11, 16),
-    "Rovers":      (16, 22),
+    "Pioneers":    (16, 19),
+    "Rovers":      (16, 19),
 }
 
 
 def get_unit_age(unit: str) -> tuple:
     return UNIT_AGE_MAP.get(unit, (7, 16))
+
+
+def _parse_json_list(value: str) -> list:
+    """Safely parse a JSON-encoded list; returns [] on malformed input."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 def retrieve_activities(
@@ -98,7 +100,7 @@ def retrieve_activities(
                 "themes":       meta.get("themes"),
                 "objective":    meta.get("objective"),
                 "instructions": meta.get("instructions"),
-                "materials":    json.loads(meta.get("materials", "[]")),
+                "materials":    _parse_json_list(meta.get("materials", "[]")),
                 "distance":     results["distances"][0][i] if results.get("distances") else None,
             })
 

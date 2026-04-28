@@ -1,11 +1,6 @@
-import sys
-import os
-import json
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from agents.base import get_unit_config
+from agents.base import get_unit_config, BOOKEND_MINUTES, _cb
 
 
 FIXED_OPENING = """Attendance taking and uniform inspection. The leader calls each member's name and records presence or absence. Each member must present their personal items for inspection: Branch Book, Small Notebook, Pen, Rope, and Small Towel. Any missing items are noted and members are reminded to bring them next week. The leader opens with the Scout Promise."""
@@ -61,10 +56,18 @@ def build_time_schedule(activities: list, total_meeting_minutes: int) -> list:
     return schedule
 
 
-def format_time(minutes: int) -> str:
-    """Converts minute offset to HH:MM format starting from 00:00."""
-    h = minutes // 60
-    m = minutes % 60
+def format_time(offset_minutes: int, start_minutes: int = 0) -> str:
+    """Converts a meeting-relative minute offset to a clock time string.
+    Without start_minutes: returns 24-h offset style  "00:15".
+    With    start_minutes: returns 12-h clock style   "1:15 PM".
+    """
+    total = offset_minutes + start_minutes
+    h = (total // 60) % 24
+    m = total % 60
+    if start_minutes:
+        period = "AM" if h < 12 else "PM"
+        h12 = h % 12 or 12
+        return f"{h12}:{m:02d} {period}"
     return f"{h:02d}:{m:02d}"
 
 
@@ -77,6 +80,7 @@ def run_formatting_agent(
     context: dict = None,
     validation: dict = None,
     custom_duration: int = None,
+    start_time_minutes: int = 0,
 ) -> dict:
     """
     Assembles the final meeting plan document as a structured dict.
@@ -87,9 +91,12 @@ def run_formatting_agent(
     """
     config          = get_unit_config(unit)
     meeting_minutes = custom_duration or config["meeting_duration"]
-    content_minutes = meeting_minutes - 30
+    content_minutes = meeting_minutes - BOOKEND_MINUTES
 
+    _cb("Formatting Agent", "Building timestamped activity schedule...", "running")
     schedule = build_time_schedule(activities, meeting_minutes)
+
+    _cb("Formatting Agent", f"Assembling complete meeting plan document ({len(activities)} activities, {meeting_minutes} minutes)...", "running")
 
     # ── Build the complete plan document ─────────────────────────────────────
     plan = {
@@ -101,7 +108,7 @@ def run_formatting_agent(
             "theme":          theme,
             "date":           meeting_date or datetime.today().strftime("%d/%m/%Y"),
             "total_duration": format_duration(meeting_minutes),
-            "generated_by":   "ScoutMind — Lebanese Scouts Association",
+            "generated_by":   "ScoutMind - Lebanese Scouts Association",
             "generated_at":   datetime.now().strftime("%d/%m/%Y %H:%M"),
         },
         "context_advisories": context.get("advisories", []) if context else [],
@@ -111,8 +118,8 @@ def run_formatting_agent(
 
     # ── Opening Ceremony ──────────────────────────────────────────────────────
     plan["schedule"].append({
-        "time_start":    "00:00",
-        "time_end":      "00:15",
+        "time_start":    format_time(0,  start_time_minutes),
+        "time_end":      format_time(15, start_time_minutes),
         "duration":      "15 minutes",
         "segment_title": "OPENING CEREMONY",
         "segment_type":  "fixed",
@@ -124,8 +131,8 @@ def run_formatting_agent(
     # ── Content Activities ────────────────────────────────────────────────────
     for i, activity in enumerate(activities):
         slot_info  = schedule[i + 1]  # +1 to skip opening
-        start_time = format_time(slot_info["start_min"])
-        end_time   = format_time(slot_info["end_min"])
+        start_time = format_time(slot_info["start_min"], start_time_minutes)
+        end_time   = format_time(slot_info["end_min"],   start_time_minutes)
         duration   = activity.get("duration_minutes", 15)
 
         # Format instructions
@@ -149,7 +156,7 @@ def run_formatting_agent(
             "time_start":           start_time,
             "time_end":             end_time,
             "duration":             f"{duration} minutes",
-            "segment_title":        f"ACTIVITY {activity.get('slot', i+1)} — {activity.get('activity_name', 'Activity').upper()}",
+            "segment_title":        f"ACTIVITY {activity.get('slot', i+1)} - {activity.get('activity_name', 'Activity').upper()}",
             "segment_type":         activity.get("activity_type", "game"),
             "energy_level":         activity.get("energy_level", "medium"),
             "objective":            activity.get("objective", ""),
@@ -158,11 +165,15 @@ def run_formatting_agent(
             "educational_technique": edu_tech_text,
             "leader_tips":          activity.get("leader_tips", ""),
             "theme_connection":     activity.get("theme_connection", ""),
+            "rag_source":           activity.get("source", "generated"),
+            "rag_id":               activity.get("activity_id", "NEW"),
         })
 
     # ── Reflection Circle & Closing ───────────────────────────────────────────
-    closing_start = format_time(meeting_minutes - 15)
-    closing_end   = format_time(meeting_minutes)
+    # Use the actual end time of the last activity (from the schedule) so there
+    # is never a gap in the timeline if content runs shorter than expected.
+    closing_start = format_time(schedule[-1]["start_min"], start_time_minutes)
+    closing_end   = format_time(schedule[-1]["end_min"],   start_time_minutes)
 
     plan["schedule"].append({
         "time_start":    closing_start,
@@ -178,9 +189,10 @@ def run_formatting_agent(
     # ── Validation Summary ────────────────────────────────────────────────────
     if validation:
         plan["validation"] = {
-            "is_valid":       validation.get("is_valid", True),
-            "warnings":       validation.get("warnings", []),
-            "activity_count": validation.get("activity_count", len(activities)),
+            "is_valid":        validation.get("is_valid", True),
+            "warnings":        validation.get("warnings", []),
+            "activity_count":  validation.get("activity_count", len(activities)),
+            "time_corrections": validation.get("time_corrections", []),
         }
 
     return plan
@@ -299,6 +311,18 @@ def plan_to_markdown(plan: dict) -> str:
         for item in materials:
             lines.append(f"- {item}")
 
+    # Validation notes
+    val = plan.get("validation", {})
+    time_corrections = val.get("time_corrections", [])
+    warnings         = val.get("warnings", [])
+    if time_corrections or warnings:
+        lines.append("")
+        lines.append("### Planner Notes")
+        for correction in time_corrections:
+            lines.append(f"> **Timing adjusted:** {correction}")
+        for warning in warnings:
+            lines.append(f"> **Note:** {warning}")
+
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -306,7 +330,7 @@ def plan_to_markdown(plan: dict) -> str:
 
     for segment in plan.get("schedule", []):
         lines.append("")
-        lines.append(f"### `{segment['time_start']} — {segment['time_end']}` &nbsp; {segment['segment_title']} *({segment['duration']})*")
+        lines.append(f"### `{segment['time_start']} - {segment['time_end']}` &nbsp; {segment['segment_title']} *({segment['duration']})*")
 
         if segment.get("segment_type") == "fixed":
             lines.append("")
@@ -322,7 +346,10 @@ def plan_to_markdown(plan: dict) -> str:
         else:
             seg_type = segment.get("segment_type", "").replace("_", " ").title()
             energy   = segment.get("energy_level", "").capitalize()
-            lines.append(f"*{seg_type} &nbsp;|&nbsp; Energy: {energy}*")
+            rag_badge = ""
+            if segment.get("rag_source") == "knowledge_base":
+                rag_badge = f" &nbsp;|&nbsp; *KB: {segment.get('rag_id', '')}*"
+            lines.append(f"*{seg_type} &nbsp;|&nbsp; Energy: {energy}{rag_badge}*")
             lines.append("")
 
             if segment.get("objective"):

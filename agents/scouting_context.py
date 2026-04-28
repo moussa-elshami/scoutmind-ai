@@ -1,11 +1,7 @@
-import sys
-import os
 import json
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from langchain_core.messages import HumanMessage, SystemMessage
-from agents.base import get_llm, get_unit_config
+from agents.base import get_llm, get_unit_config, _cb
 from rag.retriever import retrieve_for_meeting
 
 
@@ -71,6 +67,7 @@ def run_scouting_context_agent(
     config = get_unit_config(unit)
 
     # Retrieve relevant activities from RAG
+    _cb("Scouting Context Agent", f"Querying knowledge base for {unit} activities matching theme '{theme}'...", "running")
     content_minutes = sum(s.get("duration_minutes", 15) for s in sequence)
     rag_data        = retrieve_for_meeting(theme, unit, content_minutes)
 
@@ -87,6 +84,8 @@ def run_scouting_context_agent(
             "themes":       activity["themes"],
             "objective":    activity["objective"][:100] + "...",
         })
+
+    _cb("Scouting Context Agent", f"Found {len(available)} candidate activities. Sending selection request to Claude...", "running")
 
     occasion_note = f"\nSpecial occasion: {occasion}" if occasion else ""
     weather_note  = f"\nWeather conditions: {weather}" if weather else ""

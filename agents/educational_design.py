@@ -1,11 +1,7 @@
-import sys
-import os
 import json
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from langchain_core.messages import HumanMessage, SystemMessage
-from agents.base import get_llm, get_unit_config, ACTIVITY_TYPES
+from agents.base import get_llm, get_unit_config, ACTIVITY_TYPES, BOOKEND_MINUTES, _cb
 
 
 SYSTEM_PROMPT = """You are the Educational Design Agent for ScoutMind, a meeting planning
@@ -70,7 +66,9 @@ def run_educational_design_agent(
     config = get_unit_config(unit)
 
     if custom_duration:
-        total_content_minutes = custom_duration - 30  # subtract fixed bookends
+        total_content_minutes = custom_duration - BOOKEND_MINUTES
+
+    _cb("Educational Design Agent", f"Calculating content time for {unit}: {total_content_minutes} minutes available after bookends...", "running")
 
     activity_type_info = "\n".join([
         f"- {k}: {v['duration_range'][0]}-{v['duration_range'][1]} minutes"
@@ -98,6 +96,8 @@ Requirements:
 
 Respond with the JSON sequence only."""
 
+    _cb("Educational Design Agent", f"Sending sequence design request to Claude for theme: {theme}...", "running")
+
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=user_message),
@@ -120,8 +120,10 @@ Respond with the JSON sequence only."""
     # Enforce duration: if the LLM under-filled, pad with short games until exact
     sequence  = result.get("sequence", [])
     shortfall = total_content_minutes - sum(s.get("duration_minutes", 0) for s in sequence)
-    while shortfall >= 10:
-        duration = 15 if shortfall >= 15 else 10
+    if shortfall >= 5:
+        _cb("Educational Design Agent", f"Enforcing duration constraints: padding {shortfall} minutes with filler activities...", "running")
+    while shortfall >= 5:
+        duration = 15 if shortfall >= 15 else 10 if shortfall >= 10 else 5
         sequence.append({
             "slot":                len(sequence) + 1,
             "activity_type":       "game",

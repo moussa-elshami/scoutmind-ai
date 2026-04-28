@@ -2,10 +2,7 @@ import os
 import json
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import chromadb
-from chromadb.utils import embedding_functions
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
@@ -24,43 +21,40 @@ def get_chroma_client():
     return chromadb.PersistentClient(path=CHROMA_DIR)
 
 
-def get_embedding_function():
+class SentenceTransformerEF:
     """
-    Uses OpenAI text-embedding-3-small when API key is available.
-    Falls back to a simple TF-IDF style embedding for offline/dev use.
+    Neural embedding function using sentence-transformers all-MiniLM-L6-v2.
+    Produces 384-dimensional semantic embeddings. Runs fully offline after the
+    first download (~80 MB, cached automatically by sentence-transformers).
     """
-    from dotenv import load_dotenv
-    load_dotenv()
-    print("  Using simple keyword embeddings.")
-    return SimpleKeywordEmbeddingFunction()
+    _model = None  # shared across instances to avoid reloading
 
+    def _get_model(self):
+        if SentenceTransformerEF._model is None:
+            # Tell transformers/sentence-transformers to use PyTorch only.
+            # Keras 3 (if installed) is not supported by transformers, so we
+            # must suppress TF before the first import of sentence_transformers.
+            os.environ.setdefault("USE_TF", "0")
+            os.environ.setdefault("USE_KERAS", "0")
+            from sentence_transformers import SentenceTransformer
+            SentenceTransformerEF._model = SentenceTransformer("all-MiniLM-L6-v2")
+        return SentenceTransformerEF._model
 
-class SimpleKeywordEmbeddingFunction:
-    """
-    Lightweight fallback embedding function using TF-style word hashing.
-    Works fully offline. Replaced by OpenAI embeddings in production.
-    """
-    VOCAB_SIZE = 512
+    def __call__(self, input: list) -> list:
+        model = self._get_model()
+        return model.encode(input, convert_to_numpy=True).tolist()
 
-    def name(self) -> str:
-        return "simple_keyword"
-
-    def embed_query(self, input: list[str]) -> list[list[float]]:
+    def embed_query(self, input: list) -> list:
+        """ChromaDB 1.x calls this on the query path instead of __call__."""
         return self.__call__(input)
 
-    def __call__(self, input: list[str]) -> list[list[float]]:
-        import math
-        results = []
-        for text in input:
-            vec = [0.0] * self.VOCAB_SIZE
-            words = text.lower().split()
-            for word in words:
-                idx = hash(word) % self.VOCAB_SIZE
-                vec[idx] += 1.0
-            # L2 normalise
-            norm = math.sqrt(sum(v * v for v in vec)) or 1.0
-            results.append([v / norm for v in vec])
-        return results
+    def name(self) -> str:
+        return "sentence-transformer-all-MiniLM-L6-v2"
+
+
+def get_embedding_function():
+    """Returns the shared SentenceTransformer embedding function instance."""
+    return SentenceTransformerEF()
 
 
 def build_activity_document(activity: dict) -> str:

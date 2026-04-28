@@ -1,11 +1,26 @@
 import os
 import sys
+import threading
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
+
+# ── Live callback (thread-local so each user session is isolated) ─────────────
+_active_callback = threading.local()
+
+def _cb(agent: str, thought: str, status: str):
+    """Fire the active progress callback if registered for this thread."""
+    fn = getattr(_active_callback, 'fn', None)
+    if fn:
+        try:
+            fn(agent, thought, status)
+        except Exception as e:
+            print(f"[ScoutMind] callback error in '{agent}': {e}", file=sys.stderr)
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 # ── Unit Configuration ────────────────────────────────────────────────────────
+
+BOOKEND_MINUTES = 30  # fixed opening + closing ceremony duration
 
 UNIT_CONFIG = {
     "Beavers": {
@@ -37,18 +52,18 @@ UNIT_CONFIG = {
         "description":      "Boys aged 11-16. Respond well to competition, outdoor skills, physical challenges, and leadership activities.",
     },
     "Pioneers": {
-        "age_range":        (11, 16),
+        "age_range":        (16, 19),
         "gender":           "female",
         "meeting_duration": 240,
         "content_minutes":  210,
-        "description":      "Girls aged 11-16 in the Pioneers program. Focus on community service, leadership, and advanced scouting skills.",
+        "description":      "Girls aged 16-19 in the Pioneers program. Focus on community service, leadership, and advanced scouting skills.",
     },
     "Rovers": {
-        "age_range":        (16, 22),
+        "age_range":        (16, 19),
         "gender":           "male",
         "meeting_duration": 240,
         "content_minutes":  210,
-        "description":      "Young men aged 16-22. Can handle complex topics, self-directed learning, and leadership responsibilities.",
+        "description":      "Young men aged 16-19. Can handle complex topics, self-directed learning, and leadership responsibilities.",
     },
 }
 

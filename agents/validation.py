@@ -1,10 +1,6 @@
-import sys
-import os
 import json
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from agents.base import get_unit_config
+from agents.base import get_unit_config, BOOKEND_MINUTES, _cb
 
 
 def run_validation_agent(
@@ -41,7 +37,9 @@ def run_validation_agent(
     passed   = []
 
     if custom_duration:
-        total_content_minutes = custom_duration - 30
+        total_content_minutes = custom_duration - BOOKEND_MINUTES
+
+    _cb("Validation Agent", f"Checking total time balance ({len(activities)} activities, target {total_content_minutes} min)...", "running")
 
     # ── Rule 1: Total time ────────────────────────────────────────────────────
     actual_total = sum(a.get("duration_minutes", 0) for a in activities)
@@ -55,6 +53,8 @@ def run_validation_agent(
             f"Total time mismatch: activities sum to {actual_total} minutes "
             f"but expected {expected} minutes (±{tolerance} tolerance)."
         )
+
+    _cb("Validation Agent", "Checking energy bookend rules (first and last activities)...", "running")
 
     # ── Rule 2: First activity is high-energy ─────────────────────────────────
     if activities:
@@ -77,6 +77,8 @@ def run_validation_agent(
                 f"Last activity '{last.get('activity_name')}' is not high-energy. "
                 f"Meeting must end with an energetic game."
             )
+
+    _cb("Validation Agent", "Checking cognitive load balance and required activity fields...", "running")
 
     # ── Rule 4: No consecutive cognitive activities ───────────────────────────
     cognitive_types = {"lecture", "skill"}

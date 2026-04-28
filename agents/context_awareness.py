@@ -1,73 +1,17 @@
-import sys
 import os
 import json
 from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from dotenv import load_dotenv
 load_dotenv()
 
-# ── Lebanese & Scouting Occasions Calendar ────────────────────────────────────
-
-LEBANESE_OCCASIONS = {
-    # Format: "MM-DD": {"name": ..., "type": ..., "suggestion": ...}
-    "01-01": {"name": "New Year's Day",             "type": "national",  "suggestion": "Plan activities around new beginnings, goals, and hopes for the year."},
-    "02-09": {"name": "Saint Maroun's Day",          "type": "national",  "suggestion": "Incorporate Lebanese heritage, culture, and community pride."},
-    "03-08": {"name": "Women's Day",                 "type": "international", "suggestion": "Focus on equality, respect, and the contributions of women in scouting and society."},
-    "03-25": {"name": "Lebanese Mother's Day",       "type": "national",  "suggestion": "Plan activities around appreciation, family values, and gratitude."},
-    "04-22": {"name": "Earth Day",                   "type": "international", "suggestion": "Focus on environmental responsibility, Lebanese nature, and conservation."},
-    "05-25": {"name": "Lebanese Liberation Day",     "type": "national",  "suggestion": "Incorporate themes of resilience, national pride, and community strength."},
-    "08-04": {"name": "Beirut Port Explosion Memorial", "type": "national", "suggestion": "Reflect on community support, first aid, and helping those in need."},
-    "09-01": {"name": "World Scouts Day",            "type": "scouting",  "suggestion": "Celebrate scouting values, the Scout Promise, and the global scouting community."},
-    "10-22": {"name": "Lebanese Independence Day Eve", "type": "national", "suggestion": "Incorporate Lebanese heritage activities and national pride themes."},
-    "11-22": {"name": "Lebanese Independence Day",   "type": "national",  "suggestion": "Focus on Lebanese identity, history, and civic responsibility."},
-    "12-25": {"name": "Christmas",                   "type": "religious", "suggestion": "Plan inclusive activities around giving, community, and kindness."},
-}
-
-UPCOMING_WINDOW_DAYS = 7
-
-
-def check_occasion(meeting_date: str = None) -> dict:
-    """
-    Checks if the meeting date falls on or near a Lebanese or scouting occasion.
-
-    Args:
-        meeting_date: Date string in DD/MM/YYYY format, or None for today
-
-    Returns:
-        Dict with occasion info or None
-    """
-    try:
-        if meeting_date:
-            date = datetime.strptime(meeting_date, "%d/%m/%Y")
-        else:
-            date = datetime.today()
-    except ValueError:
-        date = datetime.today()
-
-    month_day = date.strftime("%m-%d")
-
-    if month_day in LEBANESE_OCCASIONS:
-        occasion = LEBANESE_OCCASIONS[month_day]
-        return {
-            "found":      True,
-            "name":       occasion["name"],
-            "type":       occasion["type"],
-            "suggestion": occasion["suggestion"],
-            "date":       date.strftime("%d/%m/%Y"),
-        }
-
-    return {"found": False, "name": None, "type": None, "suggestion": None}
+from tools.lebanese_calendar import get_occasion
 
 
 def get_weather(meeting_date: str = None) -> dict:
     """
     Fetches weather for Beirut, Lebanon using OpenWeatherMap API.
     Falls back gracefully if API key is not set.
-
-    Returns:
-        Dict with weather info and indoor/outdoor recommendation
     """
     import requests
 
@@ -99,7 +43,6 @@ def get_weather(meeting_date: str = None) -> dict:
         temp         = round(data["main"]["temp"])
         feels_like   = round(data["main"]["feels_like"])
 
-        # Determine indoor/outdoor recommendation
         if weather_id < 700:  # Rain, snow, thunderstorm
             recommendation = "indoors"
             advisory = f"Current weather: {description}, {temp}°C. Outdoor activities are not recommended today. All activities should be adapted for indoor use."
@@ -140,7 +83,7 @@ def run_context_awareness_agent(meeting_date: str = None) -> dict:
     Returns:
         Dict with occasion and weather context
     """
-    occasion = check_occasion(meeting_date)
+    occasion = get_occasion(meeting_date)
     weather  = get_weather(meeting_date)
 
     context = {
@@ -152,7 +95,7 @@ def run_context_awareness_agent(meeting_date: str = None) -> dict:
 
     if occasion["found"]:
         context["advisories"].append(
-            f"Occasion: {occasion['name']} — {occasion['suggestion']}"
+            f"Occasion: {occasion['name']} — {occasion['theme_suggestion']}"
         )
 
     if weather["advisory"]:
@@ -162,10 +105,8 @@ def run_context_awareness_agent(meeting_date: str = None) -> dict:
 
 
 if __name__ == "__main__":
-    # Test with today's date
     result = run_context_awareness_agent()
     print(json.dumps(result, indent=2))
 
-    # Test with a specific occasion date
     result2 = run_context_awareness_agent("22/04/2026")
     print(json.dumps(result2, indent=2))
