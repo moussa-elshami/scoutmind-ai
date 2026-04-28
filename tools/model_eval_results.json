@@ -1,0 +1,193 @@
+{
+  "conversation": {
+    "results": [
+      {
+        "id": "C01",
+        "description": "Direct: Cubs + nature + no date",
+        "expected_unit": "Cubs",
+        "expected_theme": "nature",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Cubs",
+        "extracted_theme": "Nature",
+        "response": "Generating a Cubs nature-themed meeting plan for you now."
+      },
+      {
+        "id": "C02",
+        "description": "Direct: Boy Scouts + leadership + date",
+        "expected_unit": "Boy Scouts",
+        "expected_theme": "leadership",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Boy Scouts",
+        "extracted_theme": "Leadership",
+        "response": "Generating a Boy Scouts leadership meeting plan for 05/05/2026 now."
+      },
+      {
+        "id": "C03",
+        "description": "Natural: Girl Scouts + friendship + today",
+        "expected_unit": "Girl Scouts",
+        "expected_theme": "friendship",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Girl Scouts",
+        "extracted_theme": "Friendship",
+        "response": "Generating a friendship-themed Girl Scouts meeting plan for today, Tuesday 28 April 2026."
+      },
+      {
+        "id": "C04",
+        "description": "Natural: Rovers + community service + today",
+        "expected_unit": "Rovers",
+        "expected_theme": "community",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Rovers",
+        "extracted_theme": "Community Service",
+        "response": "Generating a Rovers community service meeting plan for today, Tuesday 28 April 2026."
+      },
+      {
+        "id": "C05",
+        "description": "Lowercase unit: Beavers + animals + any date",
+        "expected_unit": "Beavers",
+        "expected_theme": "animals",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Beavers",
+        "extracted_theme": "Animals",
+        "response": "Generating a fun animals-themed meeting plan for your Beavers group right away."
+      },
+      {
+        "id": "C06",
+        "description": "Direct: Pioneers + environment + date",
+        "expected_unit": "Pioneers",
+        "expected_theme": "environment",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Pioneers",
+        "extracted_theme": "Environment",
+        "response": "Generating a Pioneers meeting plan focused on the environment for 10 May 2026."
+      },
+      {
+        "id": "C07",
+        "description": "Lowercase unit: Cubs + sports + no date",
+        "expected_unit": "Cubs",
+        "expected_theme": "sports",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Cubs",
+        "extracted_theme": "Sports and Fitness",
+        "response": "Generating a Cubs meeting plan on the theme of Sports and Fitness for you now."
+      },
+      {
+        "id": "C08",
+        "description": "Alias 'boy scout': Boy Scouts + first aid",
+        "expected_unit": "Boy Scouts",
+        "expected_theme": "first aid",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Boy Scouts",
+        "extracted_theme": "First Aid",
+        "response": "Generating a First Aid meeting plan for your Boy Scouts unit right away."
+      },
+      {
+        "id": "C09",
+        "description": "Full sentence: Girl Scouts + creativity + date",
+        "expected_unit": "Girl Scouts",
+        "expected_theme": "creativity",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Girl Scouts",
+        "extracted_theme": "Creativity and Arts",
+        "response": "Generating a Creativity and Arts meeting plan for your Girl Scouts unit on 15/05/2026."
+      },
+      {
+        "id": "C10",
+        "description": "Direct: Rovers + adventure + no date",
+        "expected_unit": "Rovers",
+        "expected_theme": "adventure",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Rovers",
+        "extracted_theme": "Adventure and Survival",
+        "response": "Generating your adventure and survival themed meeting plan for Rovers now."
+      },
+      {
+        "id": "C11",
+        "description": "Natural: Pioneers + leadership + no date",
+        "expected_unit": "Pioneers",
+        "expected_theme": "leadership",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Pioneers",
+        "extracted_theme": "Personal Development and Leadership",
+        "response": "Generating a Pioneers meeting plan on Personal Development and Leadership for today's date."
+      },
+      {
+        "id": "C12",
+        "description": "Alias 'rover scouts': Rovers + citizenship + date",
+        "expected_unit": "Rovers",
+        "expected_theme": "citizenship",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Rovers",
+        "extracted_theme": "Citizenship",
+        "response": "Generating a Rovers meeting plan on the theme of Citizenship for 20 May 2026."
+      },
+      {
+        "id": "C13",
+        "description": "Natural: Girl Scouts + life skills + date",
+        "expected_unit": "Girl Scouts",
+        "expected_theme": "life",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Girl Scouts",
+        "extracted_theme": "Cooking and Life Skills",
+        "response": "Generating a 4-hour Girl Scouts meeting plan on Cooking and Life Skills for 25/05/2026."
+      },
+      {
+        "id": "C14",
+        "description": "Natural: Boy Scouts + knots + any date",
+        "expected_unit": "Boy Scouts",
+        "expected_theme": "knot",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Boy Scouts",
+        "extracted_theme": "Knots and Camping Skills",
+        "response": "Generating a Boy Scouts meeting plan on knots and camping skills for today's date."
+      },
+      {
+        "id": "C15",
+        "description": "Natural: Cubs + environment + no date",
+        "expected_unit": "Cubs",
+        "expected_theme": "environment",
+        "ready": true,
+        "unit_ok": true,
+        "theme_ok": true,
+        "extracted_unit": "Cubs",
+        "extracted_theme": "Environment and Recycling",
+        "response": "Generating a Cubs meeting plan on the theme of Environment and Recycling for you now."
+      }
+    ],
+    "summary": {
+      "n_total": 15,
+      "ready_rate": 100.0,
+      "unit_accuracy": 100.0,
+      "theme_accuracy": 100.0,
+      "overall_accuracy": 100.0
+    }
+  }
+}

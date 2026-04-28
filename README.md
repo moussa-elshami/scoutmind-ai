@@ -684,4 +684,183 @@ Every generated plan receives an automatic quality score from the **Plan Evaluat
 
 ---
 
+## 18. RAG Retrieval Evaluation
+
+ScoutMind's retrieval layer was formally evaluated using three standard information retrieval metrics computed over a 15-query test set drawn from the full knowledge base (163 activities).
+
+### Evaluation Setup
+
+**Metrics:**
+- **P@K (Precision at K)** — fraction of top-K retrieved activities that are relevant
+- **R@K (Recall at K)** — fraction of all relevant activities that appear in the top-K
+- **MRR (Mean Reciprocal Rank)** — average of 1/rank of the first relevant result; measures how high the best match ranks
+
+**Ground truth:** for each test query, "relevant" is defined as any activity whose `theme_tags` contain at least one query-relevant tag, whose `suitable_units` includes the target unit, and whose `type` matches the expected activity type (where specified).
+
+**Configuration comparison:**
+
+| Axis | Option A | Option B |
+|---|---|---|
+| Embedding model | `all-MiniLM-L6-v2` (384-dim) | `all-mpnet-base-v2` (768-dim) |
+| Retrieval depth | K = 3 | K = 5 / K = 10 |
+
+The evaluation script is at `tools/rag_evaluator.py` and runs fully offline (no ChromaDB dependency).
+
+### Test Queries
+
+| ID | Description | Relevant Activities |
+|---|---|---|
+| Q01 | Teamwork game — Cubs | 22 |
+| Q02 | Nature/environment — any type | 23 |
+| Q03 | First aid skill — Boy Scouts | 12 |
+| Q04 | Knot skills — Boy Scouts | 10 |
+| Q05 | Friendship/values — Cubs | 30 |
+| Q06 | High-energy game — Beavers | 11 |
+| Q07 | Environment/responsibility — Pioneers | 45 |
+| Q08 | Leadership challenge — Rovers | 32 |
+| Q09 | Navigation — Boy Scouts | 21 |
+| Q10 | Song/community — Cubs | 10 |
+| Q11 | Scout law values — Boy Scouts | 12 |
+| Q12 | Creative craft — Girl Scouts | 12 |
+| Q13 | Storytelling — Cubs | 0 *(skipped — KB gap)* |
+| Q14 | Mindfulness/awareness — Girl Scouts | 20 |
+| Q15 | Cooperative challenge — Pioneers | 38 |
+
+### Results
+
+**`all-MiniLM-L6-v2` (384-dim) — production model:**
+
+| K | P@K | R@K | MRR |
+|---|---|---|---|
+| 3 | 0.857 | 0.154 | 0.917 |
+| 5 | 0.771 | 0.232 | 0.917 |
+| 10 | 0.657 | 0.378 | 0.917 |
+
+**`all-mpnet-base-v2` (768-dim) — comparison model:**
+
+| K | P@K | R@K | MRR |
+|---|---|---|---|
+| 3 | 0.762 | 0.135 | 0.893 |
+| 5 | 0.729 | 0.214 | 0.911 |
+| 10 | 0.621 | 0.361 | 0.911 |
+
+### Analysis
+
+**`all-MiniLM-L6-v2` outperforms `all-mpnet-base-v2` across every metric and every K value.** Despite being a smaller model (384 vs 768 dimensions), MiniLM is specifically optimised for semantic similarity on short, structured texts — which matches the activity document format exactly. mpnet, while stronger on longer or more nuanced passages, does not gain an advantage here.
+
+**MRR of 0.917** across all K values confirms that the system consistently places a relevant activity in position 1 or 2 — meaning the agent almost always sees a strong match immediately.
+
+**K trade-off:** higher K improves recall but reduces precision. K = 5 is the optimal balance (P@5 = 0.771, R@5 = 0.232, MRR = 0.917). The production pipeline uses K = 10 for breadth, which is justified for a meeting planner that needs variety across multiple activity slots.
+
+**Q13 (Storytelling — Cubs)** returned zero relevant activities, exposing a genuine knowledge base gap. Storytelling activities exist but none are tagged for the Cubs unit — a finding that directly informs future KB expansion.
+
+### Chunking Strategy
+
+Each scouting activity is embedded as a single whole document rather than split into chunks. This decision is justified by three factors:
+
+1. **Document size** — activity descriptions are 100–250 tokens, well within the 512-token limit of both models
+2. **Semantic coherence** — splitting an activity (e.g., separating materials from instructions) would fragment the meaning and degrade retrieval quality
+3. **Self-contained units** — each activity is an independent, atomic entity; the entire document is relevant or irrelevant as a whole
+
+---
+
+## 19. Full Pipeline Evaluation
+
+The complete 6-agent pipeline was evaluated on 5 diverse unit/theme combinations to measure end-to-end plan quality.
+
+### Test Cases
+
+| ID | Unit | Theme |
+|---|---|---|
+| P01 | Cubs | Nature and Wildlife |
+| P02 | Boy Scouts | Leadership |
+| P03 | Girl Scouts | Friendship |
+| P04 | Rovers | Community Service |
+| P05 | Beavers | Animals |
+
+### Results
+
+| ID | Unit | Quality Score | Grade | Timing | Validation | Time Fixes |
+|---|---|---|---|---|---|---|
+| P01 | Cubs | 90/100 | A | Perfect | Pass | 0 |
+| P02 | Boy Scouts | 90/100 | A | Perfect | Pass | 0 |
+| P03 | Girl Scouts | 90/100 | A | Perfect | Pass | 0 |
+| P04 | Rovers | 87/100 | B | Perfect | Pass | 0 |
+| P05 | Beavers | 87/100 | B | Perfect | Pass | 0 |
+
+**Summary:**
+- Mean quality score: **88.8 / 100**
+- Score range: 87 – 90
+- Timing accuracy: **100%** (all plans within ±5 min of target duration)
+- Validation pass rate: **100%** (no structural rule violations)
+- Plans requiring time corrections: **0%**
+- Grade distribution: A × 3, B × 2
+
+### Score Breakdown Analysis
+
+Quality scores decompose across four dimensions (25 pts each). With no Lebanese occasion on the test date (28/04/2026), the context-awareness dimension scored 15/25 (weather data + advisories; no occasion bonus). The remaining 72–75 points were distributed across timing, structure, and variety — confirming that all plans achieved perfect timing (25/25) and full structural correctness (25/25), with variety scores of 22–25 depending on how many of the 7 activity types the LLM selected.
+
+---
+
+## 20. Conversation Extraction Accuracy
+
+The conversation agent was evaluated on 15 varied natural-language inputs covering different phrasings, unit aliases, date formats, and communication styles.
+
+### Test Inputs
+
+| ID | Description | Expected Unit | Expected Theme |
+|---|---|---|---|
+| C01 | Direct: Cubs + nature + no date | Cubs | Nature |
+| C02 | Direct: Boy Scouts + leadership + date | Boy Scouts | Leadership |
+| C03 | Natural: Girl Scouts + friendship + today | Girl Scouts | Friendship |
+| C04 | Natural: Rovers + community service + today | Rovers | Community Service |
+| C05 | Lowercase unit: Beavers + animals + any date | Beavers | Animals |
+| C06 | Direct: Pioneers + environment + date | Pioneers | Environment |
+| C07 | Lowercase unit: Cubs + sports + no date | Cubs | Sports and Fitness |
+| C08 | Alias "boy scout" → Boy Scouts + first aid | Boy Scouts | First Aid |
+| C09 | Full sentence: Girl Scouts + creativity + date | Girl Scouts | Creativity and Arts |
+| C10 | Direct: Rovers + adventure + no date | Rovers | Adventure and Survival |
+| C11 | Natural: Pioneers + leadership + no date | Pioneers | Personal Development |
+| C12 | Alias "rover scouts" → Rovers + citizenship + date | Rovers | Citizenship |
+| C13 | Natural: Girl Scouts + life skills + date | Girl Scouts | Cooking and Life Skills |
+| C14 | Natural: Boy Scouts + knots + any date | Boy Scouts | Knots and Camping |
+| C15 | Natural: Cubs + environment + no date | Cubs | Environment and Recycling |
+
+### Results
+
+| Metric | Score |
+|---|---|
+| Ready-to-generate rate | 15 / 15 = **100%** |
+| Unit extraction accuracy | 15 / 15 = **100%** |
+| Theme extraction accuracy | 15 / 15 = **100%** |
+| Overall accuracy | **100%** |
+
+Every test case triggered immediate plan generation (`ready_to_generate: true`) with the correct unit and a meaningful theme — including lowercase inputs (`cubs`, `beavers`), informal aliases (`boy scout`, `rover scouts`), relative dates (`today`, `any date`), and varied sentence structures. The agent demonstrated robust parsing of natural language scout meeting requests across all tested conditions.
+
+---
+
+## 21. Future Work
+
+### 1. Annual Program Generator
+
+Extend ScoutMind beyond single-meeting planning to generate a full **annual scouting program** — a 40–52 week calendar of meetings with thematic progression, badge requirements, seasonal activities, and camp integration. The orchestrator pipeline would be wrapped in an outer planning loop that enforces curriculum coherence across the year: no theme repetition, balanced skill development across all Scout Law pillars, and alignment with the Lebanese Scouts Association's official annual programme framework.
+
+### 2. Camp and Trip Generator
+
+A dedicated agent pipeline for **multi-day camp planning** — distinct from weekly meetings in structure (no fixed 15-min bookends, longer activity blocks, overnight logistics, meals, safety briefings). This would introduce new agent roles: a logistics agent (transport, accommodation, permissions), a safety agent (risk assessment per activity), and a budget estimator. The RAG knowledge base would be extended with a curated camp activities collection.
+
+### 3. MCP Server Integration
+
+Expose ScoutMind's pipeline as a **Model Context Protocol (MCP) server**, allowing any MCP-compatible client (Claude Desktop, Cursor, custom tools) to invoke plan generation as a native tool call. This decouples the AI backend from the Streamlit UI and makes ScoutMind composable — a leader could trigger plan generation directly from their note-taking app or calendar tool without opening the web interface.
+
+### 4. Arabic Language Support
+
+Add full **Arabic interface support** — the Lebanese Scouts Association operates primarily in Arabic, and many leaders would find a native Arabic chat interface more accessible than English. This involves translating the conversation system prompt, adding RTL layout support in the Streamlit UI, and extending the knowledge base with Arabic-language activity descriptions. The underlying Claude model already supports Arabic natively; the main effort is in the UI and prompt layer.
+
+### 5. Leader Feedback Loop
+
+Implement a **post-meeting feedback system** where leaders rate generated plans (1–5 stars) and flag specific activities as successful or unsuccessful. This feedback is stored and used to re-rank activities in the RAG knowledge base — successful activities receive higher retrieval priority for similar unit/theme queries. Over time this creates a continuously improving, community-curated knowledge base that reflects real-world effectiveness rather than only initial curation.
+
+---
+
 *ScoutMind is built as a university LLM project demonstrating multi-agent AI systems in a real-world domain application.*
