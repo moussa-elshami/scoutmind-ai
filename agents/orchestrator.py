@@ -18,8 +18,7 @@ from agents.formatting           import run_formatting_agent, plan_to_text, plan
 from tools.time_validator        import validate_timing
 from tools.plan_evaluator        import evaluate_plan
 
-
-# ── State Definition ──────────────────────────────────────────────────────────
+# State Definition 
 
 class MeetingPlanState(TypedDict):
     # Inputs
@@ -51,7 +50,7 @@ class MeetingPlanState(TypedDict):
     clarification_question: Optional[str]
 
 
-# ── Conversational Gate ───────────────────────────────────────────────────────
+# Conversational Gate 
 
 CONVERSATION_SYSTEM_PROMPT = """You are ScoutMind, an intelligent meeting planning assistant
 for the Lebanese Scouts Association. You specialise in generating professional weekly meeting
@@ -107,6 +106,10 @@ STEP 3 — If unit and theme are clear AND either a date was provided or the use
 Never ask "shall I generate now?" — that is not a valid question.
 Never ask more than one question per response.
 Never use emojis or bullet points.
+
+PDF EXPORT: Once a plan has been generated, a "Download as PDF" button appears automatically
+below the plan in the UI. If the user asks about downloading or saving the plan as a PDF,
+tell them to scroll down to find the button directly beneath the generated plan.
 
 CRITICAL: Every single response MUST be a valid JSON object with BOTH "ready_to_generate"
 AND "response" keys. Never omit the "response" key. Never respond with plain prose.
@@ -312,7 +315,7 @@ def run_conversation_agent(
     }
 
 
-# ── Agent Node Functions ──────────────────────────────────────────────────────
+# Agent Node Functions 
 
 def node_context_awareness(state: MeetingPlanState) -> MeetingPlanState:
     """Node 1: Check weather and occasions."""
@@ -515,7 +518,7 @@ def node_formatting(state: MeetingPlanState) -> MeetingPlanState:
     return state
 
 
-# ── Conditional Edge ──────────────────────────────────────────────────────────
+# Conditional Edge 
 
 def should_continue(state: MeetingPlanState) -> str:
     """Routes to END if there's an error, otherwise continues."""
@@ -524,7 +527,7 @@ def should_continue(state: MeetingPlanState) -> str:
     return "continue"
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# Helpers 
 
 def _parse_start_time(value) -> int:
     """Convert a meeting start-time value to minutes since midnight.
@@ -551,7 +554,7 @@ def _parse_start_time(value) -> int:
     return 0
 
 
-# ── Build the Graph ───────────────────────────────────────────────────────────
+# Build the Graph 
 
 def build_pipeline() -> StateGraph:
     graph = StateGraph(MeetingPlanState)
@@ -578,7 +581,7 @@ def build_pipeline() -> StateGraph:
     return graph.compile()
 
 
-# ── Main Pipeline Runner ──────────────────────────────────────────────────────
+# Main Pipeline Runner
 
 def run_pipeline(
     unit: str,

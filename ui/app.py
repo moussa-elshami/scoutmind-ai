@@ -850,8 +850,9 @@ def render_app():
                     fname = f"ScoutMind_{h.get('unit','Plan')}_{h.get('theme','Meeting')}_{h.get('date','')}.pdf".replace(" ", "_")
                     if "cached_pdf" not in st.session_state or st.session_state.get("cached_pdf_key") != fname:
                         pdf_bytes = get_pdf_bytes(st.session_state.last_plan_state)
-                        st.session_state.cached_pdf     = pdf_bytes
-                        st.session_state.cached_pdf_key = fname
+                        if pdf_bytes:
+                            st.session_state.cached_pdf     = pdf_bytes
+                            st.session_state.cached_pdf_key = fname
                     else:
                         pdf_bytes = st.session_state.cached_pdf
                     if pdf_bytes:
