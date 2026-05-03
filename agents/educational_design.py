@@ -3,7 +3,6 @@ import json
 from langchain_core.messages import HumanMessage, SystemMessage
 from agents.base import get_llm, get_unit_config, ACTIVITY_TYPES, BOOKEND_MINUTES, _cb
 
-
 SYSTEM_PROMPT = """You are the Educational Design Agent for ScoutMind, a meeting planning
 system for the Lebanese Scouts Association.
 
@@ -42,7 +41,6 @@ The JSON must follow this exact structure:
   "total_content_minutes": 150,
   "educational_notes": "overall pedagogical rationale for this sequence"
 }"""
-
 
 def run_educational_design_agent(
     unit: str,
@@ -142,7 +140,6 @@ Respond with the JSON sequence only."""
     result["sequence"]               = sequence
     result["total_content_minutes"]  = total_content_minutes
     return result
-
 
 if __name__ == "__main__":
     result = run_educational_design_agent(

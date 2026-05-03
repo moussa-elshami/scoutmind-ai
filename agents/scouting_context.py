@@ -4,7 +4,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from agents.base import get_llm, get_unit_config, _cb
 from rag.retriever import retrieve_for_meeting
 
-
 SYSTEM_PROMPT = """You are the Scouting Context Agent for ScoutMind, a meeting planning
 system for the Lebanese Scouts Association.
 
@@ -131,7 +130,6 @@ Respond with the JSON only."""
     result["theme"]         = theme
     result["rag_pool_size"] = len(available)
     return result
-
 
 if __name__ == "__main__":
     # Quick test

@@ -4,7 +4,7 @@ import threading
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 
-# ── Live callback (thread-local so each user session is isolated) ─────────────
+# Live callback (thread-local so each user session is isolated)
 _active_callback = threading.local()
 
 def _cb(agent: str, thought: str, status: str):
@@ -18,8 +18,7 @@ def _cb(agent: str, thought: str, status: str):
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-# ── Unit Configuration ────────────────────────────────────────────────────────
-
+# Unit Configuration
 BOOKEND_MINUTES = 30  # fixed opening + closing ceremony duration
 
 UNIT_CONFIG = {
@@ -77,7 +76,6 @@ ACTIVITY_TYPES = {
     "craft":         {"duration_range": (15, 20), "label": "Craft Activity"},
 }
 
-
 def get_llm(temperature: float = 0.7) -> ChatAnthropic:
     """Returns a configured Claude claude-sonnet-4-6 instance."""
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -91,7 +89,6 @@ def get_llm(temperature: float = 0.7) -> ChatAnthropic:
         temperature=temperature,
         max_tokens=32000,
     )
-
 
 def get_unit_config(unit: str) -> dict:
     return UNIT_CONFIG.get(unit, UNIT_CONFIG["Cubs"])

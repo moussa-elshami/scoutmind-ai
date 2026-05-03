@@ -7,7 +7,6 @@ load_dotenv()
 
 from tools.lebanese_calendar import get_occasion
 
-
 def get_weather(meeting_date: str = None) -> dict:
     """
     Fetches weather for Beirut, Lebanon using OpenWeatherMap API.
@@ -72,7 +71,6 @@ def get_weather(meeting_date: str = None) -> dict:
             "error":          str(e),
         }
 
-
 def run_context_awareness_agent(meeting_date: str = None) -> dict:
     """
     Runs the context awareness checks and returns a context report.
@@ -102,7 +100,6 @@ def run_context_awareness_agent(meeting_date: str = None) -> dict:
         context["advisories"].append(weather["advisory"])
 
     return context
-
 
 if __name__ == "__main__":
     result = run_context_awareness_agent()
