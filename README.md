@@ -25,6 +25,10 @@ ScoutMind transforms the way scout leaders plan their weekly meetings. Instead o
 15. [Running the Application](#15-running-the-application)
 16. [Data Flow — End to End](#16-data-flow--end-to-end)
 17. [Quality Scoring System](#17-quality-scoring-system)
+18. [RAG Retrieval Evaluation](#18-rag-retrieval-evaluation)
+19. [Full Pipeline Evaluation](#19-full-pipeline-evaluation)
+20. [Conversation Extraction Accuracy](#20-conversation-extraction-accuracy)
+21. [Future Work](#21-future-work)
 
 ---
 
@@ -841,26 +845,36 @@ Every test case triggered immediate plan generation (`ready_to_generate: true`) 
 
 ## 21. Future Work
 
+ScoutMind AI currently focuses on generating weekly scout meeting plans. However, the same multi-agent architecture can be extended in several directions to support more complex planning tasks and even other domains.
+
 ### 1. Annual Program Generator
 
-Extend ScoutMind beyond single-meeting planning to generate a full **annual scouting program** — a 40–52 week calendar of meetings with thematic progression, badge requirements, seasonal activities, and camp integration. The orchestrator pipeline would be wrapped in an outer planning loop that enforces curriculum coherence across the year: no theme repetition, balanced skill development across all Scout Law pillars, and alignment with the Lebanese Scouts Association's official annual programme framework.
+A future version of ScoutMind could generate a complete annual scouting program instead of only one meeting at a time. This would allow leaders to plan a full year of weekly meetings, themes, badge-related activities, seasonal events, and progression goals. The system could ensure that topics are not repeated too often and that the yearly program balances leadership, teamwork, outdoor skills, citizenship, creativity, and personal development.
 
 ### 2. Camp and Trip Generator
 
-A dedicated agent pipeline for **multi-day camp planning** — distinct from weekly meetings in structure (no fixed 15-min bookends, longer activity blocks, overnight logistics, meals, safety briefings). This would introduce new agent roles: a logistics agent (transport, accommodation, permissions), a safety agent (risk assessment per activity), and a budget estimator. The RAG knowledge base would be extended with a curated camp activities collection.
+ScoutMind could also be extended to generate multi-day camp and trip programs. This version would require additional planning components such as meal schedules, transportation, safety checks, equipment lists, patrol responsibilities, risk assessment, and backup indoor/outdoor activities. Since camps are more complex than weekly meetings, this would be a natural extension of the current agent pipeline.
 
 ### 3. MCP Server Integration
 
-Expose ScoutMind's pipeline as a **Model Context Protocol (MCP) server**, allowing any MCP-compatible client (Claude Desktop, Cursor, custom tools) to invoke plan generation as a native tool call. This decouples the AI backend from the Streamlit UI and makes ScoutMind composable — a leader could trigger plan generation directly from their note-taking app or calendar tool without opening the web interface.
+Another future improvement is to expose ScoutMind as an MCP server. This would allow the system to be used as a tool by other AI applications or clients instead of being limited to the Streamlit interface. With MCP integration, a leader could request a meeting plan from another assistant, note-taking app, or calendar workflow while still using ScoutMind’s specialized planning pipeline in the background.
 
 ### 4. Arabic Language Support
 
-Add full **Arabic interface support** — the Lebanese Scouts Association operates primarily in Arabic, and many leaders would find a native Arabic chat interface more accessible than English. This involves translating the conversation system prompt, adding RTL layout support in the Streamlit UI, and extending the knowledge base with Arabic-language activity descriptions. The underlying Claude model already supports Arabic natively; the main effort is in the UI and prompt layer.
+Since many scout leaders in Lebanon work primarily in Arabic, future versions of ScoutMind should support Arabic input and Arabic output. This would include translating the user interface, adapting prompts, supporting right-to-left layout, and expanding the knowledge base with Arabic scouting activities and educational techniques. This improvement would make the system more accessible and practical for local scout leaders.
 
 ### 5. Leader Feedback Loop
 
-Implement a **post-meeting feedback system** where leaders rate generated plans (1–5 stars) and flag specific activities as successful or unsuccessful. This feedback is stored and used to re-rank activities in the RAG knowledge base — successful activities receive higher retrieval priority for similar unit/theme queries. Over time this creates a continuously improving, community-curated knowledge base that reflects real-world effectiveness rather than only initial curation.
+A future version could include a feedback loop where leaders rate generated plans and individual activities after using them in real meetings. This feedback could be stored and used to improve future recommendations. For example, activities that leaders rate highly could be retrieved more often for similar units or themes, while activities that receive poor feedback could be revised or deprioritized.
 
----
+### 6. Extension to Educational Lesson Planning
+
+The same architecture can also be adapted to education. Instead of generating scout meetings, the system could help teachers generate lesson plans, classroom activities, worksheets, assessments, and differentiated learning materials. The RAG knowledge base would contain curriculum standards, lesson examples, teaching strategies, and classroom resources. The validation agent would check learning objectives, timing, assessment alignment, and age appropriateness.
+
+### 7. Extension to Therapy and Mental Wellness Planning
+
+The same architecture can also be adapted to therapy or mental wellness support. In this setting, the system could help professionals prepare structured session plans, organize activities, define session goals, and document progress-oriented outlines. The RAG knowledge base would contain therapy techniques, session templates, psychoeducational activities, and professional guidelines. The validation layer would be especially important to ensure that generated outputs remain structured, safe, and appropriate for professional review.
+
+Overall, these directions show that ScoutMind is not only a scout meeting planner, but also a reusable multi-agent planning architecture. By changing the knowledge base, validation rules, and output format, the same design can support other domains that require structured, context-aware, and human-centered planning.
 
 *ScoutMind is built as a university LLM project demonstrating multi-agent AI systems in a real-world domain application.*
