@@ -250,6 +250,39 @@ def update_profile(
     finally:
         db.close()
 
+def get_or_create_sso_user(email: str, full_name: str, group_name: str, district: str, unit: str) -> dict:
+    """Find existing user by email or create one for SSO login. No password required."""
+    db: Session = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email.lower().strip()).first()
+        if not user:
+            user = User(
+                full_name     = full_name.strip(),
+                email         = email.lower().strip(),
+                password_hash = hash_password(secrets.token_urlsafe(32)),
+                district      = district or 'Beirut',
+                group_name    = group_name or 'LSA',
+                unit          = unit or 'Boy Scouts',
+                is_verified   = True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        return {
+            'id':         user.id,
+            'full_name':  user.full_name,
+            'email':      user.email,
+            'district':   user.district,
+            'group_name': user.group_name,
+            'unit':       user.unit,
+        }
+    except Exception as e:
+        db.rollback()
+        return {}
+    finally:
+        db.close()
+
+
 def get_user_by_id(user_id: int) -> dict | None:
     db: Session = SessionLocal()
     try:

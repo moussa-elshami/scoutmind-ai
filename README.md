@@ -17,18 +17,19 @@ ScoutMind transforms the way scout leaders plan their weekly meetings. Instead o
 7. [Tools & Utilities](#7-tools--utilities)
 8. [User Interface](#8-user-interface)
 9. [Authentication & Data Persistence](#9-authentication--data-persistence)
-10. [Scout Unit Configuration](#10-scout-unit-configuration)
-11. [Tech Stack](#11-tech-stack)
-12. [Project Structure](#12-project-structure)
-13. [Setup & Installation](#13-setup--installation)
-14. [Environment Variables](#14-environment-variables)
-15. [Running the Application](#15-running-the-application)
-16. [Data Flow — End to End](#16-data-flow--end-to-end)
-17. [Quality Scoring System](#17-quality-scoring-system)
-18. [RAG Retrieval Evaluation](#18-rag-retrieval-evaluation)
-19. [Full Pipeline Evaluation](#19-full-pipeline-evaluation)
-20. [Conversation Extraction Accuracy](#20-conversation-extraction-accuracy)
-21. [Future Work](#21-future-work)
+10. [LSA Portal SSO Integration](#10-lsa-portal-sso-integration)
+11. [Scout Unit Configuration](#11-scout-unit-configuration)
+12. [Tech Stack](#12-tech-stack)
+13. [Project Structure](#13-project-structure)
+14. [Setup & Installation](#14-setup--installation)
+15. [Environment Variables](#15-environment-variables)
+16. [Running the Application](#16-running-the-application)
+17. [Data Flow — End to End](#17-data-flow--end-to-end)
+18. [Quality Scoring System](#18-quality-scoring-system)
+19. [RAG Retrieval Evaluation](#19-rag-retrieval-evaluation)
+20. [Full Pipeline Evaluation](#20-full-pipeline-evaluation)
+21. [Conversation Extraction Accuracy](#21-conversation-extraction-accuracy)
+22. [Future Work](#22-future-work)
 
 ---
 
@@ -388,7 +389,92 @@ Wraps all DB interactions for chat sessions:
 
 ---
 
-## 10. Scout Unit Configuration
+## 10. LSA Portal SSO Integration
+
+ScoutMind supports **Single Sign-On (SSO)** from the [LSA Portal](https://github.com/hadi-14/lsa-portal). A scout leader clicks **"Generate Weekly Meeting Plan"** in the LSA Portal chat panel and lands directly inside ScoutMind's chat interface — no separate login required.
+
+### How It Works
+
+```
+LSA Portal (leader clicks button)
+        │
+        ▼
+GET /api/scoutmind/health          ← server-side health check (avoids CORS)
+        │ 200 OK
+        ▼
+POST /api/sso/token                ← LSA Portal signs a short-lived JWT
+        │ { token: "eyJ..." }
+        ▼
+window.open("http://localhost:8501?token=<JWT>")
+        │
+        ▼
+ScoutMind _handle_sso()            ← verifies token with shared SSO_SECRET
+        │ valid
+        ▼
+get_or_create_sso_user()           ← finds or creates ScoutMind DB account
+        │
+        ▼
+st.session_state.user = user       ← SSO user is logged in
+st.rerun()                         ← jumps directly to chat interface
+```
+
+### JWT Payload
+
+The LSA Portal encodes the following claims into the SSO token (5-minute expiry):
+
+| Field | Source | Example |
+|---|---|---|
+| `name` | LSA person record | `"Moussa Shamix"` |
+| `email` | LSA person record | `"moussa@lsa.org.lb"` |
+| `role` | LSA user role title | `"Scout Leader"` |
+| `group` | LSA group name/code | `"Group Beirut 1"` |
+| `district` | LSA district name | `"Beirut"` |
+| `color` | LSA unit color tag | `"green"` |
+| `exp` | issued + 5 minutes | JWT standard claim |
+
+### Color → Unit Mapping (`_color_to_unit`)
+
+The LSA Portal identifies scout units by color tag. ScoutMind converts these on arrival:
+
+| LSA Color | ScoutMind Unit |
+|---|---|
+| `green` | Boy Scouts |
+| `yellow` | Cubs |
+| `pink` | Beavers |
+| `red` | Rovers |
+| *(other / absent)* | Boy Scouts (default) |
+
+### Account Auto-Creation (`get_or_create_sso_user`)
+
+Located in `auth/auth.py`. On first SSO login the function:
+1. Looks up the user by their LSA email address (case-insensitive).
+2. If no account exists, creates one automatically — using the LSA name, email, district, group, and unit derived from the color tag. The password is set to a cryptographically random value (the account is never used for password login).
+3. Returns the user dict either way so `_handle_sso()` can store it in session state.
+
+Subsequent SSO logins reuse the existing account, so chat history and saved plans persist across sessions.
+
+### New Environment Variable
+
+Add `SSO_SECRET` to `agents/.env` (must match the value in the LSA Portal's `backend/.env`):
+
+```env
+SSO_SECRET=lsa-scoutmind-sso-secret-2024
+```
+
+Without this variable `_handle_sso()` silently skips SSO and shows the normal landing page.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `auth/auth.py` | Added `get_or_create_sso_user()` |
+| `ui/app.py` | Added `_handle_sso()`, `_color_to_unit()`, SSO branch at app entry point; fixed `load_dotenv` path |
+| `agents/.env` | Added `SSO_SECRET` (gitignored) |
+| `agents/.env.example` | Added `SSO_SECRET=your-shared-sso-secret-here` |
+
+---
+
+## 11. Scout Unit Configuration
 
 All unit-specific configuration lives in `agents/base.py`. Six units are supported:
 
@@ -419,7 +505,7 @@ Lebanese scout organization structure: 4 districts (Beirut, South, Mountain, Bek
 
 ---
 
-## 11. Tech Stack
+## 12. Tech Stack
 
 | Layer | Technology | Version | Role |
 |---|---|---|---|
@@ -438,7 +524,7 @@ Lebanese scout organization structure: 4 districts (Beirut, South, Mountain, Bek
 
 ---
 
-## 12. Project Structure
+## 13. Project Structure
 
 ```
 scoutmind-ai/
@@ -491,7 +577,7 @@ scoutmind-ai/
 
 ---
 
-## 13. Setup & Installation
+## 14. Setup & Installation
 
 **Prerequisites:** Python 3.10+, pip
 
@@ -508,7 +594,7 @@ source .venv/bin/activate      # Linux / macOS
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment variables (see §14)
+# 4. Configure environment variables (see §15)
 cp .env.example .env
 # Edit .env and fill in your API keys
 
@@ -523,7 +609,7 @@ python rag/generate_kb.py
 
 ---
 
-## 14. Environment Variables
+## 15. Environment Variables
 
 Create a `.env` file at the project root (copy from `.env.example`):
 
@@ -534,6 +620,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 # Optional — OpenWeatherMap API key for live weather
 # If not set, context_awareness agent skips weather data
 OPENWEATHER_API_KEY=...
+
+# Optional — Shared secret for LSA Portal SSO (must match LSA Portal backend/.env)
+# Without this, the SSO flow is disabled and users must log in manually
+SSO_SECRET=your-shared-sso-secret-here
 
 # Optional — Base URL for email verification links
 APP_URL=http://localhost:8501
@@ -549,11 +639,11 @@ USE_TF=0
 USE_KERAS=0
 ```
 
-Only `ANTHROPIC_API_KEY` is strictly required to run the application. Without `OPENWEATHER_API_KEY`, the Context Awareness agent will skip live weather and rely on occasion data alone.
+Only `ANTHROPIC_API_KEY` is strictly required to run the application. Without `OPENWEATHER_API_KEY`, the Context Awareness agent will skip live weather and rely on occasion data alone. Without `SSO_SECRET`, the LSA Portal SSO integration is disabled.
 
 ---
 
-## 15. Running the Application
+## 16. Running the Application
 
 ```bash
 streamlit run ui/app.py
@@ -566,7 +656,7 @@ The app will open at `http://localhost:8501`. On first launch:
 
 ---
 
-## 16. Data Flow — End to End
+## 17. Data Flow — End to End
 
 ```
 [User opens browser]
@@ -652,7 +742,7 @@ User can revisit in sidebar → "Cubs — Nature (May 2)"
 
 ---
 
-## 17. Quality Scoring System
+## 18. Quality Scoring System
 
 Every generated plan receives an automatic quality score from the **Plan Evaluator** (`tools/plan_evaluator.py`). The score is displayed in the UI immediately after plan generation.
 
@@ -688,7 +778,7 @@ Every generated plan receives an automatic quality score from the **Plan Evaluat
 
 ---
 
-## 18. RAG Retrieval Evaluation
+## 19. RAG Retrieval Evaluation
 
 ScoutMind's retrieval layer was formally evaluated using three standard information retrieval metrics computed over a 15-query test set drawn from the full knowledge base (163 activities).
 
@@ -768,7 +858,7 @@ Each scouting activity is embedded as a single whole document rather than split 
 
 ---
 
-## 19. Full Pipeline Evaluation
+## 20. Full Pipeline Evaluation
 
 The complete 6-agent pipeline was evaluated on 5 diverse unit/theme combinations to measure end-to-end plan quality.
 
@@ -806,7 +896,7 @@ Quality scores decompose across four dimensions (25 pts each). With no Lebanese 
 
 ---
 
-## 20. Conversation Extraction Accuracy
+## 21. Conversation Extraction Accuracy
 
 The conversation agent was evaluated on 15 varied natural-language inputs covering different phrasings, unit aliases, date formats, and communication styles.
 
@@ -843,7 +933,7 @@ Every test case triggered immediate plan generation (`ready_to_generate: true`) 
 
 ---
 
-## 21. Future Work
+## 22. Future Work
 
 ScoutMind AI currently focuses on generating weekly scout meeting plans. However, the same multi-agent architecture can be extended in several directions to support more complex planning tasks and even other domains.
 

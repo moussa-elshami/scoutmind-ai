@@ -4,9 +4,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import streamlit as st
 import time as _time
+import jwt as pyjwt
 
 from dotenv import load_dotenv
-load_dotenv()
+from pathlib import Path
+load_dotenv(Path(__file__).parent.parent / 'agents' / '.env')
+
+_SSO_SECRET = os.environ.get('SSO_SECRET', '')
 
 def _parse_duration_minutes(value) -> int | None:
     """Convert LLM-returned custom_duration to int minutes or None.
@@ -36,7 +40,7 @@ def _parse_duration_minutes(value) -> int | None:
 
 
 from database.models import init_db
-from auth.auth import register_user, login_user, update_profile, DISTRICTS, UNITS
+from auth.auth import register_user, login_user, update_profile, get_or_create_sso_user, DISTRICTS, UNITS
 from memory.session_store import (
     get_user_sessions, create_session, get_session_messages,
     add_message, delete_session, update_session_title,
@@ -499,6 +503,47 @@ def init_session_state():
 init_session_state()
 
 
+# ── SSO Token Handler ─────────────────────────────────────────────────────────
+def _handle_sso():
+    token = st.query_params.get('token', None)
+    if not token or st.session_state.user:
+        return
+    if not _SSO_SECRET:
+        return
+    try:
+        payload = pyjwt.decode(token, _SSO_SECRET, algorithms=['HS256'])
+        user = get_or_create_sso_user(
+            email      = payload.get('email', ''),
+            full_name  = payload.get('name', 'LSA Leader'),
+            group_name = payload.get('group', ''),
+            district   = payload.get('district', ''),
+            unit       = _color_to_unit(payload.get('color', '')),
+        )
+        if user:
+            st.session_state.user = user
+            del st.query_params['token']
+            st.session_state.page = 'app'
+            st.rerun()
+    except pyjwt.ExpiredSignatureError:
+        st.session_state.form_error = 'The sign-in link has expired. Please return to the LSA portal and try again.'
+        st.session_state.page = 'landing'
+    except pyjwt.PyJWTError:
+        st.session_state.form_error = 'Invalid sign-in link. Please return to the LSA portal and try again.'
+        st.session_state.page = 'landing'
+
+
+def _color_to_unit(color: str) -> str:
+    return {
+        'green':  'Boy Scouts',
+        'yellow': 'Cubs',
+        'pink':   'Beavers',
+        'red':    'Rovers',
+    }.get(color.lower(), 'Boy Scouts')
+
+
+_handle_sso()
+
+
 # ── Navigation ────────────────────────────────────────────────────────────────
 def go_to(page: str):
     st.session_state.page         = page
@@ -888,7 +933,7 @@ def render_app():
         user_msg = user_input.strip()
         st.session_state.messages.append({"role": "user", "content": user_msg})
 
-        # Create session if needed
+        # Create session if needed (skip for SSO users)
         if not st.session_state.current_session:
             sess = create_session(user["id"], title=user_msg[:60], unit=user["unit"])
             if sess["success"]:

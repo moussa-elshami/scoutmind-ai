@@ -20,9 +20,7 @@ load_dotenv()
 _HAS_API_KEY = bool(os.getenv("ANTHROPIC_API_KEY", "").strip()) and \
                not os.getenv("ANTHROPIC_API_KEY", "").startswith("[INSERT")
 
-
-# ── Shared fixtures ────────────────────────────────────────────────────────────
-
+# Shared fixtures 
 def _make_valid_activities(total_minutes: int = 150):
     """Returns a structurally valid activity list summing to total_minutes."""
     return [
@@ -35,7 +33,6 @@ def _make_valid_activities(total_minutes: int = 150):
         {"slot": 7, "activity_name": "Friendship Craft", "activity_type": "craft",        "duration_minutes": 20, "energy_level": "low",    "objective": "x", "instructions": ["s"], "materials": ["paper"]},
         {"slot": 8, "activity_name": "Relay Race",       "activity_type": "game",         "duration_minutes": total_minutes - 115, "energy_level": "high", "objective": "x", "instructions": ["s"], "materials": ["cones"]},
     ]
-
 
 def _make_formatting_activities():
     """Returns richer activities suitable for run_formatting_agent."""
@@ -63,9 +60,7 @@ def _make_formatting_activities():
     ]
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # 1. Lebanese Calendar
-# ══════════════════════════════════════════════════════════════════════════════
 
 class TestLebanesCalendar(unittest.TestCase):
 
