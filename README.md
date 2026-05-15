@@ -29,7 +29,8 @@ ScoutMind transforms the way scout leaders plan their weekly meetings. Instead o
 19. [RAG Retrieval Evaluation](#19-rag-retrieval-evaluation)
 20. [Full Pipeline Evaluation](#20-full-pipeline-evaluation)
 21. [Conversation Extraction Accuracy](#21-conversation-extraction-accuracy)
-22. [Future Work](#22-future-work)
+22. [Component Performance Benchmarks](#22-component-performance-benchmarks)
+23. [Future Work](#23-future-work)
 
 ---
 
@@ -470,7 +471,7 @@ Without this variable `_handle_sso()` silently skips SSO and shows the normal la
 | `auth/auth.py` | Added `get_or_create_sso_user()` |
 | `ui/app.py` | Added `_handle_sso()`, `_color_to_unit()`, SSO branch at app entry point; fixed `load_dotenv` path |
 | `agents/.env` | Added `SSO_SECRET` (gitignored) |
-| `agents/.env.example` | Added `SSO_SECRET=your-shared-sso-secret-here` |
+| `.env.example` | Added `SSO_SECRET=your-shared-sso-secret-here` |
 
 ---
 
@@ -933,7 +934,55 @@ Every test case triggered immediate plan generation (`ready_to_generate: true`) 
 
 ---
 
-## 22. Future Work
+## 22. Component Performance Benchmarks
+
+All measurements taken on a local machine running Windows 11, Python 3.10, with the ChromaDB index pre-built and the SQLite database initialized. Each non-LLM test was run 10 times; LLM tests were run 3 times. The embedding model (`all-MiniLM-L6-v2`) was warmed up before retrieval timing to exclude the one-time model load (~3–5 s on first call).
+
+**Test environment:** Windows 11, Python 3.10, ChromaDB 1.0+, SQLite (local file), Anthropic Claude Sonnet 4.6
+
+### RAG & Knowledge Base
+
+| Test | Min | Avg | Max | p95 |
+|---|---|---|---|---|
+| ChromaDB collection load (163 activities + 12 techniques) | 3.5 ms | 18.8 ms | 148.0 ms | 6.0 ms |
+| Activity retrieval — semantic search K=10 (Boy Scouts + nature) | 14.8 ms | 21.3 ms | 35.7 ms | 25.1 ms |
+| Educational technique retrieval (leadership + cooperation) | 12.3 ms | 15.9 ms | 25.3 ms | 21.4 ms |
+
+### Database (SQLAlchemy + SQLite)
+
+| Test | Min | Avg | Max | p95 |
+|---|---|---|---|---|
+| Create chat session | 3.1 ms | 4.3 ms | 11.2 ms | 4.4 ms |
+| Add message to session | 3.7 ms | 4.6 ms | 7.8 ms | 5.2 ms |
+| Get user sessions list | 0.8 ms | 0.9 ms | 1.8 ms | 0.9 ms |
+| Get session messages | 0.5 ms | 0.6 ms | 1.0 ms | 0.6 ms |
+
+### LLM & Pipeline
+
+| Test | Min | Avg | Max | Notes |
+|---|---|---|---|---|
+| Conversation agent (Claude Sonnet 4.6 — single turn) | 1916 ms | 2050 ms | 2242 ms | 3 runs |
+| Full 6-agent pipeline (Cubs + nature, complete plan) | ~3 min | ~4 min | ~5 min | Varies with API latency |
+
+### PDF Export (ReportLab)
+
+| Test | Min | Avg | Max | p95 |
+|---|---|---|---|---|
+| A4 PDF from plan dict (3 activities, full layout) | 4.2 ms | 5.3 ms | 8.6 ms | 7.3 ms |
+
+### Analysis
+
+**All local operations (RAG, DB, PDF) complete in under 36 ms** at p95. ChromaDB semantic search across 163 activity documents with `all-MiniLM-L6-v2` embeddings averages 21 ms — fast enough to be imperceptible within the pipeline.
+
+**The conversation agent** (Claude Sonnet 4.6, single message) averages **2.05 seconds**, which is well-suited to a chat interface where users expect a brief response pause.
+
+**The full 6-agent pipeline** takes between 3 and 5 minutes end-to-end depending on Anthropic API response latency at the time of the call. This is expected for 6 sequential LLM invocations running in a chain — each agent must complete before the next begins. The UI mitigates perceived wait time by showing a live thinking panel as each agent completes, so the leader can follow progress in real time rather than waiting for a blank screen.
+
+**PDF generation** takes only 5 ms on average regardless of plan complexity, making the download button effectively instant once the plan is ready.
+
+---
+
+## 23. Future Work
 
 ScoutMind AI currently focuses on generating weekly scout meeting plans. However, the same multi-agent architecture can be extended in several directions to support more complex planning tasks and even other domains.
 
